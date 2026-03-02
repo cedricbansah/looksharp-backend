@@ -52,6 +52,7 @@ class TestPaystackWebhook:
         assert resp.status_code == 200
         wd.refresh_from_db()
         assert wd.status == "processing"
+        assert wd.transfer_code == "TRF_1"
 
     def test_invalid_signature_returns_401(self):
         client = APIClient()
@@ -86,10 +87,28 @@ class TestPaystackWebhook:
         wd.refresh_from_db()
         assert wd.status == "failed"
 
-    def test_completed_withdrawal_sets_failed(self):
+    def test_completed_withdrawal_is_not_downgraded(self):
         User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
         wd = self._make_withdrawal(status="completed")
         resp = post_webhook({"reference": "REF_1"})
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        assert wd.status == "completed"
+
+    def test_processing_withdrawal_replay_is_idempotent(self):
+        User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        wd = self._make_withdrawal(status="processing", transfer_code="TRF_1")
+        resp = post_webhook({"transfer_code": "TRF_1", "reference": "REF_1"})
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        assert wd.status == "processing"
+        assert wd.transfer_code == "TRF_1"
+
+    def test_processing_with_mismatched_transfer_code_returns_400(self):
+        User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        wd = self._make_withdrawal(status="processing", transfer_code="TRF_1")
+        resp = post_webhook({"transfer_code": "TRF_2", "reference": "REF_1"})
         assert resp.status_code == 400
         wd.refresh_from_db()
-        assert wd.status == "failed"
+        assert wd.status == "processing"
+        assert wd.transfer_code == "TRF_1"

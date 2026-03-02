@@ -68,3 +68,45 @@ class TestWithdrawalEndpoint:
             format="json",
         )
         assert resp.status_code == 400
+
+    def test_points_above_user_balance_returns_400(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u4", "email": "d@d.com"}
+        User.objects.create(id="u4", email="d@d.com", is_verified=True, points=50)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.post(
+            "/api/v1/withdrawals/",
+            {
+                "amount_ghs": "10.00",
+                "points_converted": 100,
+                "recipient_code": "RCP_1",
+                "transfer_reference": "REF_4",
+            },
+            format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_user_with_active_withdrawal_gets_409(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u5", "email": "e@e.com"}
+        User.objects.create(id="u5", email="e@e.com", is_verified=True, points=500)
+        Withdrawal.objects.create(
+            user_id="u5",
+            amount_ghs="10.00",
+            points_converted=100,
+            recipient_code="RCP_1",
+            transfer_reference="REF_existing",
+            status="pending",
+        )
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.post(
+            "/api/v1/withdrawals/",
+            {
+                "amount_ghs": "10.00",
+                "points_converted": 100,
+                "recipient_code": "RCP_2",
+                "transfer_reference": "REF_new",
+            },
+            format="json",
+        )
+        assert resp.status_code == 409

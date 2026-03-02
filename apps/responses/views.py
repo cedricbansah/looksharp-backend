@@ -1,4 +1,5 @@
 from rest_framework import generics, status
+from django.db import IntegrityError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 
@@ -29,7 +30,16 @@ class ResponseListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        response_obj = serializer.save()
+        try:
+            response_obj = serializer.save(
+                user_id=request.user.id,
+                user_email=request.user.email or "",
+            )
+        except IntegrityError:
+            return DRFResponse(
+                {"error": "Response already submitted for this survey."},
+                status=status.HTTP_409_CONFLICT,
+            )
         # Fire side-effects task asynchronously on the critical queue
         apply_side_effects.apply_async(
             args=[response_obj.survey_id, response_obj.user_id],

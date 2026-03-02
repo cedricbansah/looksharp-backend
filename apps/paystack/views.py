@@ -7,6 +7,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 import services.paystack as paystack_service
+from .serializers import (
+    BanksQuerySerializer,
+    FinalizeTransferPathSerializer,
+    TransferCreateSerializer,
+    TransferRecipientCreateSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +23,10 @@ class BanksView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        serializer = BanksQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
         try:
-            data = paystack_service.list_banks(
-                type=request.query_params.get("type", "mobile_money"),
-                currency=request.query_params.get("currency", "GHS"),
-            )
+            data = paystack_service.list_banks(**serializer.validated_data)
             return Response(data)
         except http_requests.HTTPError as exc:
             logger.error("Paystack list_banks failed: %s", exc)
@@ -37,20 +42,11 @@ class TransferRecipientsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        serializer = TransferRecipientCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         try:
-            data = paystack_service.create_transfer_recipient(
-                name=request.data["name"],
-                account_number=request.data["account_number"],
-                bank_code=request.data["bank_code"],
-                type=request.data.get("type", "mobile_money"),
-                currency=request.data.get("currency", "GHS"),
-            )
+            data = paystack_service.create_transfer_recipient(**serializer.validated_data)
             return Response(data, status=status.HTTP_201_CREATED)
-        except KeyError as exc:
-            return Response(
-                {"error": f"Missing field: {exc}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
         except http_requests.HTTPError as exc:
             logger.error("Paystack create_recipient failed: %s", exc)
             return Response(
@@ -65,19 +61,16 @@ class TransfersView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        serializer = TransferCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         try:
             data = paystack_service.initiate_transfer(
-                recipient=request.data["recipient"],
-                amount_kobo=request.data["amount"],
-                reference=request.data["reference"],
-                reason=request.data.get("reason", "LookSharp cashout"),
+                recipient=serializer.validated_data["recipient"],
+                amount_kobo=serializer.validated_data["amount"],
+                reference=serializer.validated_data["reference"],
+                reason=serializer.validated_data["reason"],
             )
             return Response(data, status=status.HTTP_201_CREATED)
-        except KeyError as exc:
-            return Response(
-                {"error": f"Missing field: {exc}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
         except http_requests.HTTPError as exc:
             logger.error("Paystack initiate_transfer failed: %s", exc)
             return Response(
@@ -92,8 +85,12 @@ class FinalizeTransferView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, transfer_code):
+        serializer = FinalizeTransferPathSerializer(data={"transfer_code": transfer_code})
+        serializer.is_valid(raise_exception=True)
         try:
-            data = paystack_service.finalize_transfer(transfer_code)
+            data = paystack_service.finalize_transfer(
+                serializer.validated_data["transfer_code"]
+            )
             return Response(data)
         except http_requests.HTTPError as exc:
             logger.error("Paystack finalize_transfer failed: %s", exc)

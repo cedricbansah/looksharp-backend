@@ -42,6 +42,9 @@ class TestResponseEndpoint:
         with patch("apps.responses.views.apply_side_effects.apply_async"):
             resp = client.post("/api/v1/responses/", payload, format="json")
         assert resp.status_code == 201
+        created = Response.objects.get()
+        assert created.user_id == "u1"
+        assert created.points_earned == 25
 
     def test_post_response_without_auth_returns_401(self):
         client = APIClient()
@@ -70,6 +73,54 @@ class TestResponseEndpoint:
         resp = client.get("/api/v1/responses/")
         assert resp.status_code == 200
         assert len(resp.data["results"]) == 1
+
+    def test_post_response_ignores_spoofed_identity_fields(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u1", "email": "real@b.com"}
+        User.objects.create(id="u1", email="real@b.com")
+        Survey.objects.create(id="s1", title="Test", points=25)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        payload = {
+            "survey_id": "s1",
+            "submitted_at": timezone.now().isoformat(),
+            "answers": [{"question_id": "q1", "answer_text": "A"}],
+            "user_id": "attacker-id",
+            "user_email": "spoofed@example.com",
+            "points_earned": 999999,
+        }
+        with patch("apps.responses.views.apply_side_effects.apply_async"):
+            resp = client.post("/api/v1/responses/", payload, format="json")
+        assert resp.status_code == 201
+        created = Response.objects.get()
+        assert created.user_id == "u1"
+        assert created.user_email == "real@b.com"
+        assert created.points_earned == 25
+
+    def test_duplicate_response_returns_409(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u1", "email": "a@b.com"}
+        User.objects.create(id="u1", email="a@b.com")
+        Survey.objects.create(id="s1", title="Test", points=25)
+        Response.objects.create(
+            survey_id="s1",
+            user_id="u1",
+            user_email="a@b.com",
+            submitted_at=timezone.now(),
+            answers=[{"question_id": "q1", "answer_text": "A"}],
+            points_earned=25,
+        )
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        with patch("apps.responses.views.apply_side_effects.apply_async"):
+            resp = client.post(
+                "/api/v1/responses/",
+                {
+                    "survey_id": "s1",
+                    "submitted_at": timezone.now().isoformat(),
+                    "answers": [{"question_id": "q1", "answer_text": "B"}],
+                },
+                format="json",
+            )
+        assert resp.status_code == 400
 
 
 @pytest.mark.django_db

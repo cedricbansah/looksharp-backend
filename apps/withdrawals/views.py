@@ -1,8 +1,10 @@
+from django.db import IntegrityError, transaction
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 
 from apps.core.permissions import IsVerified
+from apps.users.models import User
 
 from .models import Withdrawal
 from .serializers import WithdrawalCreateSerializer, WithdrawalListSerializer
@@ -29,7 +31,34 @@ class WithdrawalListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        withdrawal = serializer.save(user_id=request.user.id, status="pending")
+        with transaction.atomic():
+            user = User.objects.select_for_update().get(id=request.user.id)
+            requested_points = serializer.validated_data["points_converted"]
+
+            if requested_points > user.points:
+                return DRFResponse(
+                    {"error": "Insufficient points for this withdrawal."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            has_active_withdrawal = Withdrawal.objects.filter(
+                user_id=user.id,
+                status__in=["pending", "processing"],
+            ).exists()
+            if has_active_withdrawal:
+                return DRFResponse(
+                    {"error": "An active withdrawal already exists for this user."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            try:
+                withdrawal = serializer.save(user_id=user.id, status="pending")
+            except IntegrityError:
+                return DRFResponse(
+                    {"error": "transfer_reference already exists."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
         return DRFResponse(
             WithdrawalListSerializer(withdrawal).data,
             status=status.HTTP_201_CREATED,

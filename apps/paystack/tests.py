@@ -1,3 +1,118 @@
-from django.test import TestCase
+from unittest.mock import patch
 
-# Create your tests here.
+import pytest
+import requests
+from rest_framework.test import APIClient
+
+from apps.users.models import User
+
+
+@pytest.fixture
+def mock_firebase():
+    with patch("apps.core.authentication.firebase_auth.verify_id_token") as mocked, patch(
+        "apps.core.authentication._get_firebase_app"
+    ):
+        yield mocked
+
+
+def _authed_client(mock_firebase):
+    mock_firebase.return_value = {"uid": "u1", "email": "a@b.com"}
+    User.objects.create(id="u1", email="a@b.com")
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION="Bearer token")
+    return client
+
+
+@pytest.mark.django_db
+class TestPaystackProxyEndpoints:
+    def test_banks_returns_200(self, mock_firebase):
+        client = _authed_client(mock_firebase)
+        with patch("apps.paystack.views.paystack_service.list_banks") as list_banks:
+            list_banks.return_value = {"status": True, "data": [{"name": "MTN"}]}
+            resp = client.get("/api/v1/paystack/banks/?type=mobile_money&currency=GHS")
+        assert resp.status_code == 200
+        list_banks.assert_called_once_with(type="mobile_money", currency="GHS")
+
+    def test_banks_http_error_returns_502(self, mock_firebase):
+        client = _authed_client(mock_firebase)
+        with patch("apps.paystack.views.paystack_service.list_banks") as list_banks:
+            list_banks.side_effect = requests.HTTPError("upstream failed")
+            resp = client.get("/api/v1/paystack/banks/")
+        assert resp.status_code == 502
+
+    def test_transfer_recipient_returns_201(self, mock_firebase):
+        client = _authed_client(mock_firebase)
+        payload = {
+            "name": "Cedric Bansah",
+            "account_number": "0240000000",
+            "bank_code": "MTN",
+        }
+        with patch(
+            "apps.paystack.views.paystack_service.create_transfer_recipient"
+        ) as create_recipient:
+            create_recipient.return_value = {"status": True, "data": {"recipient_code": "RCP_1"}}
+            resp = client.post("/api/v1/paystack/transfer-recipients/", payload, format="json")
+        assert resp.status_code == 201
+        create_recipient.assert_called_once_with(
+            name="Cedric Bansah",
+            account_number="0240000000",
+            bank_code="MTN",
+            type="mobile_money",
+            currency="GHS",
+        )
+
+    def test_transfer_recipient_validation_returns_400(self, mock_firebase):
+        client = _authed_client(mock_firebase)
+        resp = client.post(
+            "/api/v1/paystack/transfer-recipients/",
+            {"name": "Cedric"},
+            format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_transfers_returns_201(self, mock_firebase):
+        client = _authed_client(mock_firebase)
+        payload = {
+            "recipient": "RCP_1",
+            "amount": 1000,
+            "reference": "REF_1",
+        }
+        with patch("apps.paystack.views.paystack_service.initiate_transfer") as initiate_transfer:
+            initiate_transfer.return_value = {"status": True, "data": {"transfer_code": "TRF_1"}}
+            resp = client.post("/api/v1/paystack/transfers/", payload, format="json")
+        assert resp.status_code == 201
+        initiate_transfer.assert_called_once_with(
+            recipient="RCP_1",
+            amount_kobo=1000,
+            reference="REF_1",
+            reason="LookSharp cashout",
+        )
+
+    def test_transfers_validation_returns_400(self, mock_firebase):
+        client = _authed_client(mock_firebase)
+        resp = client.post(
+            "/api/v1/paystack/transfers/",
+            {"recipient": "RCP_1", "amount": 0},
+            format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_finalize_returns_200(self, mock_firebase):
+        client = _authed_client(mock_firebase)
+        with patch("apps.paystack.views.paystack_service.finalize_transfer") as finalize_transfer:
+            finalize_transfer.return_value = {"status": True}
+            resp = client.post("/api/v1/paystack/transfers/TRF_1/finalize/", {}, format="json")
+        assert resp.status_code == 200
+        finalize_transfer.assert_called_once_with("TRF_1")
+
+    def test_finalize_http_error_returns_502(self, mock_firebase):
+        client = _authed_client(mock_firebase)
+        with patch("apps.paystack.views.paystack_service.finalize_transfer") as finalize_transfer:
+            finalize_transfer.side_effect = requests.HTTPError("upstream failed")
+            resp = client.post("/api/v1/paystack/transfers/TRF_1/finalize/", {}, format="json")
+        assert resp.status_code == 502
+
+    def test_unauthenticated_request_returns_401(self):
+        client = APIClient()
+        resp = client.get("/api/v1/paystack/banks/")
+        assert resp.status_code == 401

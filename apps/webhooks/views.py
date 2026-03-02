@@ -4,6 +4,7 @@ import json
 import logging
 
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -101,46 +102,76 @@ def _validate_and_transition(identifier, identifier_type, transfer_code):
     from apps.withdrawals.models import Withdrawal
 
     try:
-        withdrawal = Withdrawal.objects.filter(**{identifier_type: identifier}).first()
-        if not withdrawal:
-            logger.error("Withdrawal not found: %s=%s", identifier_type, identifier)
-            return {"success": False, "reason": "Transfer not found"}
+        with transaction.atomic():
+            withdrawal = (
+                Withdrawal.objects.select_for_update()
+                .filter(**{identifier_type: identifier})
+                .first()
+            )
+            if not withdrawal:
+                logger.error("Withdrawal not found: %s=%s", identifier_type, identifier)
+                return {"success": False, "reason": "Transfer not found"}
 
-        user = User.objects.filter(id=withdrawal.user_id).first()
-        if not user:
-            _mark_failed(withdrawal, transfer_code, "User not found")
-            return {"success": False, "reason": "User not found"}
+            if withdrawal.status == "completed":
+                logger.info("Webhook replay ignored for completed withdrawal %s", withdrawal.id)
+                return {"success": True}
 
-        if not user.is_verified:
-            _mark_failed(withdrawal, transfer_code, "User not verified")
-            return {"success": False, "reason": "User not verified"}
+            if withdrawal.status == "failed":
+                logger.info("Webhook replay ignored for failed withdrawal %s", withdrawal.id)
+                return {"success": True}
 
-        if withdrawal.status not in ("pending", "processing"):
-            reason = f"Invalid withdrawal status: {withdrawal.status}"
-            _mark_failed(withdrawal, transfer_code, reason)
-            return {"success": False, "reason": reason}
+            if withdrawal.status == "processing":
+                if (
+                    transfer_code
+                    and withdrawal.transfer_code
+                    and withdrawal.transfer_code != transfer_code
+                ):
+                    return {
+                        "success": False,
+                        "reason": "Transfer code mismatch for processing withdrawal",
+                    }
+                if transfer_code and not withdrawal.transfer_code:
+                    withdrawal.transfer_code = transfer_code
+                    withdrawal.updated_at = timezone.now()
+                    withdrawal.save(update_fields=["transfer_code", "updated_at"])
+                logger.info(
+                    "Webhook replay ignored for processing withdrawal %s", withdrawal.id
+                )
+                return {"success": True}
 
-        if withdrawal.points_converted > user.points:
-            _mark_failed(withdrawal, transfer_code, "Insufficient points")
-            return {"success": False, "reason": "Insufficient points"}
+            if withdrawal.status != "pending":
+                return {"success": False, "reason": f"Invalid withdrawal status: {withdrawal.status}"}
 
-        pending_count = Withdrawal.objects.filter(
-            user_id=withdrawal.user_id,
-            status__in=["pending", "processing"],
-        ).count()
-        if pending_count > 1:
-            _mark_failed(withdrawal, transfer_code, "Multiple pending withdrawals")
-            return {"success": False, "reason": "Multiple pending withdrawals"}
+            user = User.objects.select_for_update().filter(id=withdrawal.user_id).first()
+            if not user:
+                _mark_failed(withdrawal, transfer_code, "User not found")
+                return {"success": False, "reason": "User not found"}
 
-        # All checks passed - approve
-        withdrawal.status = "processing"
-        if transfer_code:
-            withdrawal.transfer_code = transfer_code
-        withdrawal.updated_at = timezone.now()
-        withdrawal.save(update_fields=["status", "transfer_code", "updated_at"])
+            if not user.is_verified:
+                _mark_failed(withdrawal, transfer_code, "User not verified")
+                return {"success": False, "reason": "User not verified"}
 
-        logger.info("Withdrawal %s approved -> processing", withdrawal.id)
-        return {"success": True}
+            if withdrawal.points_converted > user.points:
+                _mark_failed(withdrawal, transfer_code, "Insufficient points")
+                return {"success": False, "reason": "Insufficient points"}
+
+            pending_count = Withdrawal.objects.filter(
+                user_id=withdrawal.user_id,
+                status__in=["pending", "processing"],
+            ).count()
+            if pending_count > 1:
+                _mark_failed(withdrawal, transfer_code, "Multiple pending withdrawals")
+                return {"success": False, "reason": "Multiple pending withdrawals"}
+
+            # All checks passed - approve
+            withdrawal.status = "processing"
+            if transfer_code:
+                withdrawal.transfer_code = transfer_code
+            withdrawal.updated_at = timezone.now()
+            withdrawal.save(update_fields=["status", "transfer_code", "updated_at"])
+
+            logger.info("Withdrawal %s approved -> processing", withdrawal.id)
+            return {"success": True}
 
     except Exception as exc:
         logger.exception("Error in webhook validation: %s", exc)
