@@ -1,0 +1,13 @@
+from django.urls import include, path
+
+urlpatterns = [
+    path("api/v1/users/", include("apps.users.urls")),
+    path("api/v1/surveys/", include("apps.surveys.urls")),
+    path("api/v1/responses/", include("apps.responses.urls")),
+    path("api/v1/offers/", include("apps.offers.urls")),
+    path("api/v1/verifications/", include("apps.verifications.urls")),
+    path("api/v1/withdrawals/", include("apps.withdrawals.urls")),
+    path("api/v1/paystack/", include("apps.paystack.urls")),
+    path("api/v1/webhooks/", include("apps.webhooks.urls")),
+    path("api/v1/admin/dashboard/", include("apps.counters.urls")),
+]

@@ -1,0 +1,8 @@
+-r base.txt
+pytest==8.*
+pytest-django==4.*
+pytest-mock==3.*
+factory-boy==3.*
+freezegun==1.*
+black==24.*
+ruff==0.4.*
