@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint + Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: looksharp
+          POSTGRES_USER: looksharp_app
+          POSTGRES_PASSWORD: looksharpapp123
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U looksharp_app -d looksharp"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      SECRET_KEY: ci-secret-key-change-me-with-50-plus-characters-123456
+      DATABASE_URL: postgres://looksharp_app:looksharpapp123@localhost:5432/looksharp
+      REDIS_URL: redis://localhost:6379/0
+      FIREBASE_SERVICE_ACCOUNT_KEY_PATH: /tmp/firebase-service-account.json
+      PAYSTACK_SECRET_KEY: sk_test_placeholder
+      HUBTEL_USERNAME: placeholder
+      HUBTEL_PASSWORD: placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements/dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/dev.txt
+
+      - name: Create dummy Firebase credential file
+        run: |
+          echo '{}' > /tmp/firebase-service-account.json
+
+      - name: Django checks
+        run: |
+          python manage.py migrate --noinput
+          python manage.py check
+
+      - name: Ruff lint
+        run: |
+          ruff check \
+            apps/users/models.py \
+            apps/users/serializers.py \
+            apps/users/views.py \
+            apps/users/tests.py \
+            apps/responses/models.py \
+            apps/responses/serializers.py \
+            apps/responses/views.py \
+            apps/responses/tasks.py \
+            apps/responses/tests.py \
+            apps/withdrawals/models.py \
+            apps/withdrawals/serializers.py \
+            apps/withdrawals/views.py \
+            apps/withdrawals/tests.py \
+            apps/webhooks/views.py \
+            apps/webhooks/tests.py \
+            apps/paystack/serializers.py \
+            apps/paystack/views.py \
+            apps/paystack/tests.py \
+            services/paystack.py
+
+      - name: Run tests
+        run: |
+          pytest -q \
+            apps/users/tests.py \
+            apps/responses/tests.py \
+            apps/withdrawals/tests.py \
+            apps/webhooks/tests.py \
+            apps/paystack/tests.py
