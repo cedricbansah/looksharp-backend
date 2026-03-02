@@ -89,6 +89,9 @@ FIREBASE_SERVICE_ACCOUNT_KEY_PATH = env(
     "FIREBASE_SERVICE_ACCOUNT_KEY_PATH",
     default=str(BASE_DIR / "firebase-service-account.json"),
 )
+PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY", default="")
+HUBTEL_USERNAME = env("HUBTEL_USERNAME", default="")
+HUBTEL_PASSWORD = env("HUBTEL_PASSWORD", default="")
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
