@@ -15,7 +15,7 @@ on:
           - staging
           - production
       image_tag:
-        description: Optional existing Artifact Registry image tag (example: sha-abc123def456)
+        description: "Optional existing Artifact Registry image tag (example: sha-abc123def456)"
         required: false
         type: string
 
