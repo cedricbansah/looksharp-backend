@@ -13,7 +13,6 @@ class WithdrawalCreateSerializer(serializers.ModelSerializer):
         fields = [
             "amount_ghs",
             "points_converted",
-            "recipient_code",
             "transfer_reference",
         ]
 

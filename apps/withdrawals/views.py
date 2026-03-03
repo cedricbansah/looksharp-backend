@@ -35,6 +35,12 @@ class WithdrawalListCreateView(generics.ListCreateAPIView):
             user = User.objects.select_for_update().get(id=request.user.id)
             requested_points = serializer.validated_data["points_converted"]
 
+            if not user.recipient_code:
+                return DRFResponse(
+                    {"error": "User has no transfer recipient configured."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             if requested_points > user.points:
                 return DRFResponse(
                     {"error": "Insufficient points for this withdrawal."},
@@ -52,7 +58,11 @@ class WithdrawalListCreateView(generics.ListCreateAPIView):
                 )
 
             try:
-                withdrawal = serializer.save(user_id=user.id, status="pending")
+                withdrawal = serializer.save(
+                    user_id=user.id,
+                    status="pending",
+                    recipient_code=user.recipient_code,
+                )
             except IntegrityError:
                 return DRFResponse(
                     {"error": "transfer_reference already exists."},

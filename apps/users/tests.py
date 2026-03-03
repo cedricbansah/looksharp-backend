@@ -35,6 +35,31 @@ class TestMeEndpoint:
         assert response.status_code == 200
         assert User.objects.filter(id="new-uid").exists()
 
+    def test_get_me_creates_user_with_uid_fallback_email_when_claim_missing(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "uid-no-email"}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        response = client.get("/api/v1/users/me/")
+        assert response.status_code == 200
+        user = User.objects.get(id="uid-no-email")
+        assert user.email == "uid-no-email@firebase.local"
+
+    def test_multiple_no_email_users_do_not_conflict_on_unique_email(self, mock_firebase):
+        mock_firebase.side_effect = [
+            {"uid": "uid-no-email-1"},
+            {"uid": "uid-no-email-2"},
+        ]
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        first = client.get("/api/v1/users/me/")
+        second = client.get("/api/v1/users/me/")
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert User.objects.filter(id="uid-no-email-1", email="uid-no-email-1@firebase.local").exists()
+        assert User.objects.filter(id="uid-no-email-2", email="uid-no-email-2@firebase.local").exists()
+
     def test_patch_me_updates_writable_fields(self, mock_firebase):
         mock_firebase.return_value = {"uid": "uid-2", "email": "b@b.com"}
         User.objects.create(id="uid-2", email="b@b.com")

@@ -54,6 +54,56 @@ class TestPaystackWebhook:
         assert wd.status == "processing"
         assert wd.transfer_code == "TRF_1"
 
+    def test_transfer_success_sets_completed_and_deducts_points(self):
+        user = User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        wd = self._make_withdrawal(status="processing", transfer_code="TRF_1")
+        resp = post_webhook(
+            {
+                "event": "transfer.success",
+                "data": {"transfer_code": "TRF_1", "reference": "REF_1"},
+            }
+        )
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        user.refresh_from_db()
+        assert wd.status == "completed"
+        assert wd.completed_at is not None
+        assert user.points == 400
+
+    def test_transfer_success_replay_is_idempotent(self):
+        user = User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        wd = self._make_withdrawal(status="processing", transfer_code="TRF_1")
+        payload = {
+            "event": "transfer.success",
+            "data": {"transfer_code": "TRF_1", "reference": "REF_1"},
+        }
+        first = post_webhook(payload)
+        second = post_webhook(payload)
+        assert first.status_code == 200
+        assert second.status_code == 200
+        wd.refresh_from_db()
+        user.refresh_from_db()
+        assert wd.status == "completed"
+        assert user.points == 400
+
+    def test_transfer_failed_sets_failed(self):
+        User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        wd = self._make_withdrawal(status="processing", transfer_code="TRF_1")
+        resp = post_webhook(
+            {
+                "event": "transfer.failed",
+                "data": {
+                    "transfer_code": "TRF_1",
+                    "reference": "REF_1",
+                    "failure_reason": "insufficient balance",
+                },
+            }
+        )
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        assert wd.status == "failed"
+        assert wd.failure_reason == "insufficient balance"
+
     def test_invalid_signature_returns_401(self):
         client = APIClient()
         raw = json.dumps({"reference": "REF_1"}).encode()
@@ -88,12 +138,19 @@ class TestPaystackWebhook:
         assert wd.status == "failed"
 
     def test_completed_withdrawal_is_not_downgraded(self):
-        User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        user = User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
         wd = self._make_withdrawal(status="completed")
-        resp = post_webhook({"reference": "REF_1"})
+        resp = post_webhook(
+            {
+                "event": "transfer.failed",
+                "data": {"transfer_code": "TRF_1", "reference": "REF_1"},
+            }
+        )
         assert resp.status_code == 200
         wd.refresh_from_db()
+        user.refresh_from_db()
         assert wd.status == "completed"
+        assert user.points == 500
 
     def test_processing_withdrawal_replay_is_idempotent(self):
         User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
