@@ -21,8 +21,8 @@ class TestOfferEndpoints:
     def test_list_returns_active_offers(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u1", "email": "a@b.com"}
         User.objects.create(id="u1", email="a@b.com")
-        Offer.objects.create(id="o1", title="A", status="active", is_deleted=False)
-        Offer.objects.create(id="o2", title="B", status="inactive", is_deleted=False)
+        Offer.objects.create(id="o1", title="A", status="active")
+        Offer.objects.create(id="o2", title="B", status="inactive")
 
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION="Bearer token")

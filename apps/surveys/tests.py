@@ -22,9 +22,9 @@ class TestSurveyEndpoints:
     def test_list_returns_active_surveys_only(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u1", "email": "a@b.com"}
         User.objects.create(id="u1", email="a@b.com")
-        Survey.objects.create(id="s1", title="Active", status="active", is_deleted=False)
-        Survey.objects.create(id="s2", title="Draft", status="draft", is_deleted=False)
-        Survey.objects.create(id="s3", title="Deleted", status="active", is_deleted=True)
+        Survey.objects.create(id="s1", title="Active", status="active")
+        Survey.objects.create(id="s2", title="Draft", status="draft")
+        Survey.objects.create(id="s3", title="Completed", status="completed")
 
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION="Bearer token")
@@ -37,7 +37,7 @@ class TestSurveyEndpoints:
     def test_detail_includes_questions(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u2", "email": "b@b.com"}
         User.objects.create(id="u2", email="b@b.com")
-        survey = Survey.objects.create(id="s1", title="Active", status="active", is_deleted=False)
+        survey = Survey.objects.create(id="s1", title="Active", status="active")
         Question.objects.create(
             survey=survey,
             question_text="How are you?",

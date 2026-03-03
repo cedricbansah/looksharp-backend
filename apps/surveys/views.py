@@ -28,10 +28,7 @@ class SurveyListView(generics.ListAPIView):
     serializer_class = SurveyListSerializer
 
     def get_queryset(self):
-        return Survey.objects.filter(
-            status="active",
-            is_deleted=False,
-        ).order_by("-created_at")
+        return Survey.objects.filter(status="active").order_by("-created_at")
 
 
 class SurveyDetailView(generics.RetrieveAPIView):
@@ -39,17 +36,14 @@ class SurveyDetailView(generics.RetrieveAPIView):
     serializer_class = SurveyDetailSerializer
 
     def get_queryset(self):
-        return Survey.objects.filter(
-            status="active",
-            is_deleted=False,
-        )
+        return Survey.objects.filter(status="active")
 
 
 class AdminSurveyListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
-        return Survey.objects.filter(is_deleted=False).order_by("-created_at")
+        return Survey.objects.all().order_by("-created_at")
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -71,7 +65,7 @@ class AdminSurveyUpdateDeleteView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def patch(self, request, survey_id):
-        survey = Survey.objects.filter(id=survey_id, is_deleted=False).first()
+        survey = Survey.objects.filter(id=survey_id).first()
         if not survey:
             return Response({"error": "Survey not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -82,7 +76,7 @@ class AdminSurveyUpdateDeleteView(APIView):
 
     def delete(self, request, survey_id):
         with transaction.atomic():
-            survey = Survey.objects.select_for_update().filter(id=survey_id, is_deleted=False).first()
+            survey = Survey.objects.select_for_update().filter(id=survey_id).first()
             if not survey:
                 return Response({"error": "Survey not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -101,10 +95,9 @@ class AdminQuestionListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
-        return Question.objects.filter(
-            survey_id=self.kwargs["survey_id"],
-            is_deleted=False,
-        ).order_by("position_index", "created_at")
+        return Question.objects.filter(survey_id=self.kwargs["survey_id"]).order_by(
+            "position_index", "created_at"
+        )
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -112,7 +105,7 @@ class AdminQuestionListCreateView(generics.ListCreateAPIView):
         return QuestionSerializer
 
     def create(self, request, *args, **kwargs):
-        survey = Survey.objects.filter(id=self.kwargs["survey_id"], is_deleted=False).first()
+        survey = Survey.objects.filter(id=self.kwargs["survey_id"]).first()
         if not survey:
             return Response({"error": "Survey not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -121,9 +114,9 @@ class AdminQuestionListCreateView(generics.ListCreateAPIView):
 
         with transaction.atomic():
             max_position = (
-                Question.objects.filter(survey_id=survey.id, is_deleted=False).aggregate(
-                    max_position=Max("position_index")
-                )["max_position"]
+                Question.objects.filter(survey_id=survey.id).aggregate(max_position=Max("position_index"))[
+                    "max_position"
+                ]
                 or 0
             )
             question = serializer.save(
@@ -140,7 +133,7 @@ class AdminQuestionUpdateDeleteView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def patch(self, request, survey_id, question_id):
-        question = Question.objects.filter(id=question_id, survey_id=survey_id, is_deleted=False).first()
+        question = Question.objects.filter(id=question_id, survey_id=survey_id).first()
         if not question:
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -151,11 +144,7 @@ class AdminQuestionUpdateDeleteView(APIView):
 
     def delete(self, request, survey_id, question_id):
         with transaction.atomic():
-            question = (
-                Question.objects.select_for_update()
-                .filter(id=question_id, survey_id=survey_id, is_deleted=False)
-                .first()
-            )
+            question = Question.objects.select_for_update().filter(id=question_id, survey_id=survey_id).first()
             if not question:
                 return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -174,7 +163,7 @@ class AdminQuestionReorderView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def post(self, request, survey_id):
-        survey_exists = Survey.objects.filter(id=survey_id, is_deleted=False).exists()
+        survey_exists = Survey.objects.filter(id=survey_id).exists()
         if not survey_exists:
             return Response({"error": "Survey not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -187,7 +176,6 @@ class AdminQuestionReorderView(APIView):
                 .filter(
                     id=serializer.validated_data["question_a_id"],
                     survey_id=survey_id,
-                    is_deleted=False,
                 )
                 .first()
             )
@@ -196,7 +184,6 @@ class AdminQuestionReorderView(APIView):
                 .filter(
                     id=serializer.validated_data["question_b_id"],
                     survey_id=survey_id,
-                    is_deleted=False,
                 )
                 .first()
             )

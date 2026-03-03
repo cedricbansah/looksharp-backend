@@ -33,7 +33,6 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             *CLIENT_WRITABLE_FIELDS,
             *SERVER_CONTROLLED_FIELDS,
-            "is_deleted",
             "created_at",
             "updated_at",
         ]
@@ -41,7 +40,6 @@ class UserSerializer(serializers.ModelSerializer):
             "id",
             "email",
             *SERVER_CONTROLLED_FIELDS,
-            "is_deleted",
             "created_at",
             "updated_at",
         ]

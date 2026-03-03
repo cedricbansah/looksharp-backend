@@ -29,15 +29,14 @@ class Offer(models.Model):
     end_date = models.DateTimeField(null=True, blank=True)
     days_remaining = models.PositiveIntegerField(default=0)
     is_featured = models.BooleanField(default=False)
-    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "offers"
         indexes = [
-            models.Index(fields=["is_deleted", "status", "-created_at"]),
-            models.Index(fields=["is_deleted", "category", "-created_at"]),
+            models.Index(fields=["status", "-created_at"]),
+            models.Index(fields=["category", "-created_at"]),
         ]
 
     def __str__(self):

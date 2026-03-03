@@ -33,7 +33,6 @@ class User(AbstractBaseUser):
     surveys_completed = models.JSONField(default=list)
     offers_claimed = models.JSONField(default=list)
 
-    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

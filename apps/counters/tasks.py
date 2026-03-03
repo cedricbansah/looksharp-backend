@@ -23,7 +23,7 @@ def _counter() -> DashboardCounter:
 
 @shared_task(queue="default")
 def recompute_active_surveys() -> int:
-    value = Survey.objects.filter(status="active", is_deleted=False).count()
+    value = Survey.objects.filter(status="active").count()
     counter = _counter()
     counter.active_surveys = value
     counter.save(update_fields=["active_surveys", "updated_at"])
@@ -32,7 +32,7 @@ def recompute_active_surveys() -> int:
 
 @shared_task(queue="default")
 def recompute_active_offers() -> int:
-    value = Offer.objects.filter(status="active", is_deleted=False).count()
+    value = Offer.objects.filter(status="active").count()
     counter = _counter()
     counter.active_offers = value
     counter.save(update_fields=["active_offers", "updated_at"])
@@ -41,7 +41,7 @@ def recompute_active_offers() -> int:
 
 @shared_task(queue="default")
 def recompute_total_responses() -> int:
-    value = Response.objects.filter(is_deleted=False).count()
+    value = Response.objects.count()
     counter = _counter()
     counter.total_responses = value
     counter.save(update_fields=["total_responses", "updated_at"])
@@ -63,11 +63,9 @@ def recompute_total_paid_out() -> str:
 @shared_task(queue="default")
 def recompute_extended_dashboard() -> dict:
     counter = _counter()
-    counter.total_users = User.objects.filter(is_deleted=False).count()
-    counter.verified_users = User.objects.filter(is_deleted=False, is_verified=True).count()
-    counter.total_points_issued = User.objects.filter(is_deleted=False).aggregate(
-        total=Sum("points")
-    )["total"] or 0
+    counter.total_users = User.objects.count()
+    counter.verified_users = User.objects.filter(is_verified=True).count()
+    counter.total_points_issued = User.objects.aggregate(total=Sum("points"))["total"] or 0
     counter.pending_verifications = Verification.objects.filter(status="pending").count()
     counter.pending_withdrawals = Withdrawal.objects.filter(
         status__in=["pending", "processing"]

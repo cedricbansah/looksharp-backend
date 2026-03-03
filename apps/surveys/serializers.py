@@ -19,7 +19,6 @@ class QuestionSerializer(serializers.ModelSerializer):
             "choices",
             "scale_lower_limit",
             "scale_upper_limit",
-            "is_deleted",
             "created_at",
             "updated_at",
         ]
@@ -42,7 +41,6 @@ class SurveyListSerializer(serializers.ModelSerializer):
             "response_count",
             "estimated_time",
             "end_date",
-            "is_deleted",
             "created_at",
             "updated_at",
         ]
@@ -58,7 +56,7 @@ class SurveyDetailSerializer(SurveyListSerializer):
 
     @extend_schema_field(QuestionSerializer(many=True))
     def get_questions(self, obj) -> list[dict[str, Any]]:
-        queryset = obj.questions.filter(is_deleted=False).order_by("position_index", "created_at")
+        queryset = obj.questions.order_by("position_index", "created_at")
         return QuestionSerializer(queryset, many=True).data
 
 

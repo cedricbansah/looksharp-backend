@@ -22,7 +22,6 @@ class OfferListSerializer(serializers.ModelSerializer):
             "end_date",
             "days_remaining",
             "is_featured",
-            "is_deleted",
             "created_at",
             "updated_at",
         ]

@@ -23,7 +23,6 @@ def recompute_status() -> dict:
 
     ended_count = Offer.objects.filter(
         status="active",
-        is_deleted=False,
         end_date__isnull=False,
         end_date__lte=now,
     ).update(status="inactive", days_remaining=0, updated_at=now)
@@ -31,7 +30,6 @@ def recompute_status() -> dict:
     updated_offers = []
     active_offers = Offer.objects.filter(
         status="active",
-        is_deleted=False,
         end_date__isnull=False,
         end_date__gt=now,
     ).only("id", "end_date", "days_remaining")

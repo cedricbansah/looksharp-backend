@@ -41,7 +41,7 @@ class OfferListView(generics.ListAPIView):
     serializer_class = OfferListSerializer
 
     def get_queryset(self):
-        return Offer.objects.filter(status="active", is_deleted=False).order_by("-created_at")
+        return Offer.objects.filter(status="active").order_by("-created_at")
 
 
 class RedemptionListCreateView(generics.ListCreateAPIView):
@@ -65,7 +65,6 @@ class RedemptionListCreateView(generics.ListCreateAPIView):
             try:
                 offer = Offer.objects.select_for_update().get(
                     id=offer_id,
-                    is_deleted=False,
                     status="active",
                 )
             except Offer.DoesNotExist:
@@ -126,7 +125,7 @@ class AdminOfferListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
-        return Offer.objects.filter(is_deleted=False).order_by("-created_at")
+        return Offer.objects.all().order_by("-created_at")
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -142,7 +141,7 @@ class AdminOfferListCreateView(generics.ListCreateAPIView):
 
 class AdminOfferUpdateDeleteView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
-    queryset = Offer.objects.filter(is_deleted=False)
+    queryset = Offer.objects.all()
 
     def patch(self, request, offer_id):
         offer = self.get_queryset().filter(id=offer_id).first()
@@ -156,7 +155,7 @@ class AdminOfferUpdateDeleteView(generics.GenericAPIView):
 
     def delete(self, request, offer_id):
         with transaction.atomic():
-            offer = Offer.objects.select_for_update().filter(id=offer_id, is_deleted=False).first()
+            offer = Offer.objects.select_for_update().filter(id=offer_id).first()
             if not offer:
                 return Response({"error": "Offer not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -173,7 +172,7 @@ class AdminOfferUpdateDeleteView(generics.GenericAPIView):
 
 class AdminOfferPosterUploadView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
-    queryset = Offer.objects.filter(is_deleted=False)
+    queryset = Offer.objects.all()
 
     def post(self, request, offer_id):
         offer = self.get_queryset().filter(id=offer_id).first()

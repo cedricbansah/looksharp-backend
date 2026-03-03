@@ -79,7 +79,7 @@ class AdminUserListView(generics.ListAPIView):
     serializer_class = AdminUserSerializer
 
     def get_queryset(self):
-        return User.objects.filter(is_deleted=False).order_by("-created_at")
+        return User.objects.all().order_by("-created_at")
 
 
 class GrantAdminView(APIView):
@@ -91,7 +91,7 @@ class GrantAdminView(APIView):
         description="Grant admin privileges to the target user.",
     )
     def post(self, request, user_id):
-        user = User.objects.filter(id=user_id, is_deleted=False).first()
+        user = User.objects.filter(id=user_id).first()
         if not user:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 

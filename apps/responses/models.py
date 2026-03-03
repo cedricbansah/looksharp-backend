@@ -14,7 +14,6 @@ class Response(models.Model):
     # Embedded answers array - matches Firestore contract exactly
     # [{question_id, question_text, position_index, answer_text}, ...]
     answers = models.JSONField()
-    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

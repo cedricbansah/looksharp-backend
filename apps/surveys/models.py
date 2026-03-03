@@ -37,15 +37,14 @@ class Survey(models.Model):
     estimated_time = models.PositiveIntegerField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
     created_by = models.CharField(max_length=128, blank=True)
-    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "surveys"
         indexes = [
-            models.Index(fields=["is_deleted", "status", "-created_at"]),
-            models.Index(fields=["is_deleted", "category", "-created_at"]),
+            models.Index(fields=["status", "-created_at"]),
+            models.Index(fields=["category", "-created_at"]),
         ]
 
     def __str__(self):
@@ -62,14 +61,13 @@ class Question(models.Model):
     choices = models.JSONField(default=list, blank=True)
     scale_lower_limit = models.IntegerField(null=True, blank=True)
     scale_upper_limit = models.IntegerField(null=True, blank=True)
-    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "questions"
         indexes = [
-            models.Index(fields=["survey", "is_deleted", "position_index"]),
+            models.Index(fields=["survey", "position_index"]),
         ]
 
     def __str__(self):
