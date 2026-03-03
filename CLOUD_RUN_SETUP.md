@@ -36,6 +36,8 @@ Recommended optional variables:
 - `CLOUD_RUN_TIMEOUT=120s`
 - `CLOUD_RUN_CONCURRENCY=80`
 - `CLOUD_RUN_SERVICE_ACCOUNT=<runtime-service-account-email>`
+- `CLOUD_RUN_SERVICE_COMMAND=gunicorn`
+- `CLOUD_RUN_SERVICE_ARGS=config.wsgi:application,--bind,0.0.0.0:8080,--workers,2,--timeout,120`
 - `CLOUD_RUN_ENV_VARS=KEY1=VALUE1,KEY2=VALUE2`
 - `CLOUD_RUN_SECRET_VARS=SECRET_KEY=DJANGO_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest,REDIS_URL=REDIS_URL_STAGING:latest`
 
@@ -84,4 +86,5 @@ gh workflow run cd.yml -f target=production -f image_tag=sha-<12-char-sha>
 ## 4) Notes
 
 - The workflow deploys API + migration job.
+- By default, service startup is forced to `gunicorn config.wsgi:application --bind 0.0.0.0:8080 --workers 2 --timeout 120` via deploy script.
 - Celery worker/beat are not deployed by this workflow and should be provisioned separately.
