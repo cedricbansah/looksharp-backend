@@ -2,6 +2,8 @@ import uuid
 
 from django.db import transaction
 from django.db.models import Case, F, Max, Value, When
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -64,6 +66,15 @@ class AdminSurveyListCreateView(generics.ListCreateAPIView):
 class AdminSurveyUpdateDeleteView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=AdminSurveyUpdateSerializer,
+        responses={
+            200: SurveyListSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Update an existing survey.",
+    )
     def patch(self, request, survey_id):
         survey = Survey.objects.filter(id=survey_id).first()
         if not survey:
@@ -74,6 +85,15 @@ class AdminSurveyUpdateDeleteView(APIView):
         serializer.save()
         return Response(SurveyListSerializer(survey).data)
 
+    @extend_schema(
+        request=None,
+        responses={
+            204: None,
+            404: OpenApiTypes.OBJECT,
+            409: OpenApiTypes.OBJECT,
+        },
+        description="Delete a survey if it has no existing responses.",
+    )
     def delete(self, request, survey_id):
         with transaction.atomic():
             survey = Survey.objects.select_for_update().filter(id=survey_id).first()
@@ -132,6 +152,15 @@ class AdminQuestionListCreateView(generics.ListCreateAPIView):
 class AdminQuestionUpdateDeleteView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=AdminQuestionUpdateSerializer,
+        responses={
+            200: QuestionSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Update a question in a survey.",
+    )
     def patch(self, request, survey_id, question_id):
         question = Question.objects.filter(id=question_id, survey_id=survey_id).first()
         if not question:
@@ -142,6 +171,14 @@ class AdminQuestionUpdateDeleteView(APIView):
         serializer.save()
         return Response(QuestionSerializer(question).data)
 
+    @extend_schema(
+        request=None,
+        responses={
+            204: None,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Delete a question from a survey.",
+    )
     def delete(self, request, survey_id, question_id):
         with transaction.atomic():
             question = Question.objects.select_for_update().filter(id=question_id, survey_id=survey_id).first()
@@ -162,6 +199,15 @@ class AdminQuestionUpdateDeleteView(APIView):
 class AdminQuestionReorderView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=QuestionReorderSerializer,
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Swap order of two questions in a survey.",
+    )
     def post(self, request, survey_id):
         survey_exists = Survey.objects.filter(id=survey_id).exists()
         if not survey_exists:

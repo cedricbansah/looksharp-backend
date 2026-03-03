@@ -2,7 +2,9 @@ import logging
 
 from django.db import IntegrityError, transaction
 from django.db.models import F
-from rest_framework import generics, status
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -142,7 +144,17 @@ class AdminOfferListCreateView(generics.ListCreateAPIView):
 class AdminOfferUpdateDeleteView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     queryset = Offer.objects.all()
+    serializer_class = AdminOfferUpdateSerializer
 
+    @extend_schema(
+        request=AdminOfferUpdateSerializer,
+        responses={
+            200: OfferListSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Update an existing offer.",
+    )
     def patch(self, request, offer_id):
         offer = self.get_queryset().filter(id=offer_id).first()
         if not offer:
@@ -153,6 +165,15 @@ class AdminOfferUpdateDeleteView(generics.GenericAPIView):
         serializer.save()
         return Response(OfferListSerializer(offer).data)
 
+    @extend_schema(
+        request=None,
+        responses={
+            204: None,
+            404: OpenApiTypes.OBJECT,
+            409: OpenApiTypes.OBJECT,
+        },
+        description="Delete an offer if it has no redemptions.",
+    )
     def delete(self, request, offer_id):
         with transaction.atomic():
             offer = Offer.objects.select_for_update().filter(id=offer_id).first()
@@ -173,7 +194,20 @@ class AdminOfferUpdateDeleteView(generics.GenericAPIView):
 class AdminOfferPosterUploadView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     queryset = Offer.objects.all()
+    serializer_class = OfferListSerializer
 
+    @extend_schema(
+        request=inline_serializer(
+            name="AdminOfferPosterUploadRequest",
+            fields={"file": serializers.ImageField()},
+        ),
+        responses={
+            200: OfferListSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Upload and attach an offer poster image (multipart/form-data).",
+    )
     def post(self, request, offer_id):
         offer = self.get_queryset().filter(id=offer_id).first()
         if not offer:

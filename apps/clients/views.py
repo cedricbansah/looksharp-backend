@@ -1,7 +1,9 @@
 import uuid
 
 from django.db import transaction
-from rest_framework import generics, status
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -51,6 +53,15 @@ class AdminClientListCreateView(generics.ListCreateAPIView):
 class AdminClientUpdateDeleteView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=ClientUpdateSerializer,
+        responses={
+            200: ClientSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Update an existing client.",
+    )
     def patch(self, request, client_id):
         client = Client.objects.filter(id=client_id).first()
         if not client:
@@ -61,6 +72,15 @@ class AdminClientUpdateDeleteView(APIView):
         serializer.save()
         return Response(ClientSerializer(client).data)
 
+    @extend_schema(
+        request=None,
+        responses={
+            204: None,
+            404: OpenApiTypes.OBJECT,
+            409: OpenApiTypes.OBJECT,
+        },
+        description="Delete a client if it is not referenced by surveys or offers.",
+    )
     def delete(self, request, client_id):
         with transaction.atomic():
             client = Client.objects.select_for_update().filter(id=client_id).first()
@@ -82,6 +102,18 @@ class AdminClientUpdateDeleteView(APIView):
 class AdminClientLogoUploadView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=inline_serializer(
+            name="AdminClientLogoUploadRequest",
+            fields={"file": serializers.ImageField()},
+        ),
+        responses={
+            200: ClientSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Upload and attach a client logo image (multipart/form-data).",
+    )
     def post(self, request, client_id):
         client = Client.objects.filter(id=client_id).first()
         if not client:

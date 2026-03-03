@@ -3,6 +3,8 @@ import uuid
 from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
@@ -108,6 +110,16 @@ class AdminWithdrawalListView(generics.ListAPIView):
 class AdminWithdrawalUpdateView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=AdminWithdrawalUpdateSerializer,
+        responses={
+            200: WithdrawalListSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+            409: OpenApiTypes.OBJECT,
+        },
+        description="Update withdrawal status to completed or failed.",
+    )
     def patch(self, request, withdrawal_id):
         serializer = AdminWithdrawalUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
