@@ -12,6 +12,15 @@ def _get_firebase_app():
     return firebase_admin.get_app()
 
 
+def _resolved_email(decoded_token: dict) -> str:
+    """Ensure every Firebase user can be persisted with a unique, stable email value."""
+    email = decoded_token.get("email")
+    if email:
+        return email
+    uid = decoded_token["uid"]
+    return f"{uid}@firebase.local"
+
+
 class FirebaseAuthentication(BaseAuthentication):
     """
     Verify a Firebase ID token from the Authorization header.
@@ -38,7 +47,7 @@ class FirebaseAuthentication(BaseAuthentication):
             raise AuthenticationFailed("Invalid Firebase token.") from exc
 
         uid = decoded["uid"]
-        email = decoded.get("email", "")
+        email = _resolved_email(decoded)
 
         from apps.users.models import User
 
@@ -46,6 +55,9 @@ class FirebaseAuthentication(BaseAuthentication):
             id=uid,
             defaults={"email": email, "points": 0},
         )
+        if not user.email:
+            user.email = email
+            user.save(update_fields=["email", "updated_at"])
         return (user, None)
 
     def authenticate_header(self, request):

@@ -73,10 +73,10 @@ class TestCounterAdminEndpoints:
 @pytest.mark.django_db
 class TestCounterTasks:
     def test_recompute_tasks_update_dashboard_counter(self):
-        Survey.objects.create(id="s1", title="A", status="active", is_deleted=False)
-        Survey.objects.create(id="s2", title="B", status="draft", is_deleted=False)
-        Offer.objects.create(id="o1", title="A", status="active", is_deleted=False)
-        Offer.objects.create(id="o2", title="B", status="inactive", is_deleted=False)
+        Survey.objects.create(id="s1", title="A", status="active")
+        Survey.objects.create(id="s2", title="B", status="draft")
+        Offer.objects.create(id="o1", title="A", status="active")
+        Offer.objects.create(id="o2", title="B", status="inactive")
 
         Response.objects.create(
             survey_id="s1",

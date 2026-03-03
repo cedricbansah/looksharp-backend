@@ -19,25 +19,24 @@ class Offer(models.Model):
     description = models.CharField(max_length=1000, blank=True)
     status = models.CharField(max_length=20, choices=OFFER_STATUS_CHOICES, default="inactive")
     category = models.CharField(max_length=100, blank=True)
-    url = models.URLField(blank=True)
-    poster_url = models.URLField(blank=True)
+    url = models.URLField(blank=True, max_length=500)
+    poster_url = models.URLField(blank=True, max_length=500)
     client_id = models.CharField(max_length=128, blank=True)
     client_name = models.CharField(max_length=255, blank=True)
-    client_logo_url = models.URLField(blank=True)
+    client_logo_url = models.URLField(blank=True, max_length=500)
     offer_code = models.CharField(max_length=64, blank=True, db_index=True)
     points_required = models.PositiveIntegerField(default=0)
     end_date = models.DateTimeField(null=True, blank=True)
     days_remaining = models.PositiveIntegerField(default=0)
     is_featured = models.BooleanField(default=False)
-    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "offers"
         indexes = [
-            models.Index(fields=["is_deleted", "status", "-created_at"]),
-            models.Index(fields=["is_deleted", "category", "-created_at"]),
+            models.Index(fields=["status", "-created_at"]),
+            models.Index(fields=["category", "-created_at"]),
         ]
 
     def __str__(self):

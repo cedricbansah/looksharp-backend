@@ -31,7 +31,7 @@ class ResponseCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_survey_id(self, value):
-        if not Survey.objects.filter(id=value, is_deleted=False).exists():
+        if not Survey.objects.filter(id=value).exists():
             raise serializers.ValidationError("Survey does not exist.")
         return value
 
@@ -47,10 +47,7 @@ class ResponseCreateSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        survey = Survey.objects.filter(
-            id=validated_data["survey_id"],
-            is_deleted=False,
-        ).only("points").first()
+        survey = Survey.objects.filter(id=validated_data["survey_id"]).only("points").first()
         if not survey:
             raise serializers.ValidationError({"survey_id": "Survey does not exist."})
         validated_data["points_earned"] = survey.points
@@ -69,7 +66,6 @@ class ResponseListSerializer(serializers.ModelSerializer):
             "points_earned",
             "submitted_at",
             "answers",
-            "is_deleted",
             "created_at",
         ]
         read_only_fields = fields

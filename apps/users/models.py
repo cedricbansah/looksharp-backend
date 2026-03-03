@@ -20,7 +20,7 @@ class User(AbstractBaseUser):
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=10, blank=True)
     country = models.CharField(max_length=100, default="Ghana")
-    profile_photo_url = models.URLField(blank=True)
+    profile_photo_url = models.URLField(blank=True, max_length=500)
 
     # Server-controlled — never written directly by clients
     points = models.PositiveIntegerField(default=0)
@@ -33,7 +33,6 @@ class User(AbstractBaseUser):
     surveys_completed = models.JSONField(default=list)
     offers_claimed = models.JSONField(default=list)
 
-    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

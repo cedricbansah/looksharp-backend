@@ -19,7 +19,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Third-party
+    "corsheaders",
     "rest_framework",
+    "drf_spectacular",
     "django_celery_beat",
     # Apps
     "apps.core",
@@ -32,10 +34,12 @@ INSTALLED_APPS = [
     "apps.paystack",
     "apps.counters",
     "apps.webhooks",
+    "apps.clients",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -76,9 +80,36 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/min",
+        "user": "300/min",
+        "withdrawal_create": "10/hour",
+        "verification_create": "10/hour",
+        "paystack_webhook": "120/min",
+    },
     "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardPagination",
     "PAGE_SIZE": 50,
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=False)
+SPECTACULAR_SETTINGS = {
+    "TITLE": "LookSharp Backend API",
+    "DESCRIPTION": "Django REST API for LookSharp mobile and admin clients.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    "ENUM_NAME_OVERRIDES": {
+        "OfferStatusEnum": "apps.offers.models.OFFER_STATUS_CHOICES",
+        "SurveyStatusEnum": "apps.surveys.models.SURVEY_STATUS_CHOICES",
+        "VerificationStatusEnum": "apps.verifications.models.VERIFICATION_STATUS_CHOICES",
+        "WithdrawalStatusEnum": "apps.withdrawals.models.WITHDRAWAL_STATUS_CHOICES",
+    },
 }
 
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")
@@ -119,6 +150,11 @@ FIREBASE_SERVICE_ACCOUNT_KEY_PATH = env(
 PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY", default="")
 HUBTEL_USERNAME = env("HUBTEL_USERNAME", default="")
 HUBTEL_PASSWORD = env("HUBTEL_PASSWORD", default="")
+CLOUDFLARE_ACCOUNT_ID = env("CLOUDFLARE_ACCOUNT_ID", default="")
+R2_ACCESS_KEY_ID = env("R2_ACCESS_KEY_ID", default="")
+R2_SECRET_ACCESS_KEY = env("R2_SECRET_ACCESS_KEY", default="")
+R2_BUCKET_NAME = env("R2_BUCKET_NAME", default="looksharp")
+R2_PUBLIC_URL = env("R2_PUBLIC_URL", default="")
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"

@@ -29,6 +29,9 @@ class Withdrawal(models.Model):
 
     class Meta:
         db_table = "withdrawals"
+        indexes = [
+            models.Index(fields=["user_id", "status"]),
+        ]
 
     def __str__(self):
         return f"Withdrawal {self.id} - {self.status} - {self.amount_ghs} GHS"

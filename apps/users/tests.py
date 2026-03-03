@@ -35,6 +35,31 @@ class TestMeEndpoint:
         assert response.status_code == 200
         assert User.objects.filter(id="new-uid").exists()
 
+    def test_get_me_creates_user_with_uid_fallback_email_when_claim_missing(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "uid-no-email"}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        response = client.get("/api/v1/users/me/")
+        assert response.status_code == 200
+        user = User.objects.get(id="uid-no-email")
+        assert user.email == "uid-no-email@firebase.local"
+
+    def test_multiple_no_email_users_do_not_conflict_on_unique_email(self, mock_firebase):
+        mock_firebase.side_effect = [
+            {"uid": "uid-no-email-1"},
+            {"uid": "uid-no-email-2"},
+        ]
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        first = client.get("/api/v1/users/me/")
+        second = client.get("/api/v1/users/me/")
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert User.objects.filter(id="uid-no-email-1", email="uid-no-email-1@firebase.local").exists()
+        assert User.objects.filter(id="uid-no-email-2", email="uid-no-email-2@firebase.local").exists()
+
     def test_patch_me_updates_writable_fields(self, mock_firebase):
         mock_firebase.return_value = {"uid": "uid-2", "email": "b@b.com"}
         User.objects.create(id="uid-2", email="b@b.com")
@@ -120,15 +145,32 @@ class TestAdminUserEndpoints:
         mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION="Bearer token")
-        response = client.post(f"/api/v1/admin/users/{target.id}/grant-admin/", {}, format="json")
+        with patch("apps.users.views._sync_firebase_admin_claim") as mock_sync_claim:
+            response = client.post(f"/api/v1/admin/users/{target.id}/grant-admin/", {}, format="json")
 
         assert response.status_code == 200
         target.refresh_from_db()
+        mock_sync_claim.assert_called_once_with(target.id)
         assert target.is_admin is True
 
+    def test_grant_admin_returns_502_when_firebase_sync_fails(self, mock_firebase):
+        admin = User.objects.create(id="admin-3", email="admin3@b.com", is_admin=True)
+        target = User.objects.create(id="member-3", email="member3@b.com", is_admin=False)
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        with patch("apps.users.views._sync_firebase_admin_claim") as mock_sync_claim:
+            mock_sync_claim.side_effect = RuntimeError("firebase down")
+            response = client.post(f"/api/v1/admin/users/{target.id}/grant-admin/", {}, format="json")
+
+        assert response.status_code == 502
+        target.refresh_from_db()
+        assert target.is_admin is False
+
     def test_non_admin_cannot_grant_admin(self, mock_firebase):
-        user = User.objects.create(id="member-3", email="member3@b.com", is_admin=False)
-        target = User.objects.create(id="member-4", email="member4@b.com", is_admin=False)
+        user = User.objects.create(id="member-4", email="member4@b.com", is_admin=False)
+        target = User.objects.create(id="member-5", email="member5@b.com", is_admin=False)
 
         mock_firebase.return_value = {"uid": user.id, "email": user.email}
         client = APIClient()

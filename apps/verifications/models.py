@@ -34,9 +34,9 @@ class Verification(models.Model):
     network_provider = models.CharField(max_length=32, choices=NETWORK_PROVIDER_CHOICES)
     id_type = models.CharField(max_length=32, choices=ID_TYPE_CHOICES)
     id_number = models.CharField(max_length=128)
-    id_front_url = models.URLField()
-    id_back_url = models.URLField()
-    selfie_url = models.URLField()
+    id_front_url = models.URLField(max_length=500)
+    id_back_url = models.URLField(max_length=500)
+    selfie_url = models.URLField(max_length=500)
     status = models.CharField(
         max_length=20,
         choices=VERIFICATION_STATUS_CHOICES,

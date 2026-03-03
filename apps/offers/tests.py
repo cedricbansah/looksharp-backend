@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
 from apps.offers.models import Offer, Redemption
@@ -20,8 +21,8 @@ class TestOfferEndpoints:
     def test_list_returns_active_offers(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u1", "email": "a@b.com"}
         User.objects.create(id="u1", email="a@b.com")
-        Offer.objects.create(id="o1", title="A", status="active", is_deleted=False)
-        Offer.objects.create(id="o2", title="B", status="inactive", is_deleted=False)
+        Offer.objects.create(id="o1", title="A", status="active")
+        Offer.objects.create(id="o2", title="B", status="inactive")
 
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION="Bearer token")
@@ -88,3 +89,107 @@ class TestOfferEndpoints:
         client = APIClient()
         resp = client.post("/api/v1/redemptions/", {"offer_id": "o1"}, format="json")
         assert resp.status_code == 401
+
+
+@pytest.mark.django_db
+class TestAdminOfferEndpoints:
+    def test_admin_create_update_delete_offer(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-1", email="admin-offer-1@b.com", is_admin=True)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        create = client.post(
+            "/api/v1/admin/offers/",
+            {"title": "Offer A", "status": "inactive", "points_required": 20},
+            format="json",
+        )
+        assert create.status_code == 201
+        offer_id = create.data["id"]
+
+        update = client.patch(
+            f"/api/v1/admin/offers/{offer_id}/",
+            {"status": "active", "title": "Offer A+"},
+            format="json",
+        )
+        assert update.status_code == 200
+        assert update.data["status"] == "active"
+        assert update.data["title"] == "Offer A+"
+
+        delete = client.delete(f"/api/v1/admin/offers/{offer_id}/")
+        assert delete.status_code == 204
+        assert not Offer.objects.filter(id=offer_id).exists()
+
+    def test_admin_delete_offer_with_redemptions_returns_409(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-2", email="admin-offer-2@b.com", is_admin=True)
+        user = User.objects.create(id="member-offer-2", email="member-offer-2@b.com")
+        offer = Offer.objects.create(id="offer-guard-1", title="Guard Offer", status="active", points_required=10)
+        Redemption.objects.create(
+            user_id=user.id,
+            offer=offer,
+            offer_code="C1",
+            offer_title=offer.title,
+            client_name="Client",
+            points_spent=10,
+        )
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        resp = client.delete(f"/api/v1/admin/offers/{offer.id}/")
+        assert resp.status_code == 409
+
+    def test_admin_poster_upload_rejects_invalid_type(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-3", email="admin-offer-3@b.com", is_admin=True)
+        offer = Offer.objects.create(id="offer-upload-1", title="Upload Offer", status="active")
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        file_obj = SimpleUploadedFile("poster.txt", b"not-an-image", content_type="text/plain")
+        resp = client.post(
+            f"/api/v1/admin/offers/{offer.id}/upload-poster/",
+            {"file": file_obj},
+            format="multipart",
+        )
+        assert resp.status_code == 400
+
+    def test_admin_poster_upload_rejects_spoofed_content_type(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-5", email="admin-offer-5@b.com", is_admin=True)
+        offer = Offer.objects.create(id="offer-upload-3", title="Upload Offer 3", status="active")
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        file_obj = SimpleUploadedFile("poster.png", b"not-a-real-image", content_type="image/png")
+        resp = client.post(
+            f"/api/v1/admin/offers/{offer.id}/upload-poster/",
+            {"file": file_obj},
+            format="multipart",
+        )
+        assert resp.status_code == 400
+
+    def test_admin_poster_upload_updates_offer_url(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-4", email="admin-offer-4@b.com", is_admin=True)
+        offer = Offer.objects.create(id="offer-upload-2", title="Upload Offer 2", status="active")
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        with patch("apps.offers.views.upload_file") as mock_upload:
+            mock_upload.return_value = "https://cdn.example/offers/offer-upload-2/poster"
+            file_obj = SimpleUploadedFile("poster.png", b"\x89PNG\r\n\x1a\n", content_type="image/png")
+            resp = client.post(
+                f"/api/v1/admin/offers/{offer.id}/upload-poster/",
+                {"file": file_obj},
+                format="multipart",
+            )
+
+        assert resp.status_code == 200
+        offer.refresh_from_db()
+        assert offer.poster_url == "https://cdn.example/offers/offer-upload-2/poster"

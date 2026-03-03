@@ -22,7 +22,6 @@ class OfferListSerializer(serializers.ModelSerializer):
             "end_date",
             "days_remaining",
             "is_featured",
-            "is_deleted",
             "created_at",
             "updated_at",
         ]
@@ -49,3 +48,44 @@ class RedemptionListSerializer(serializers.ModelSerializer):
             "redeemed_at",
         ]
         read_only_fields = fields
+
+
+class AdminOfferCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Offer
+        fields = [
+            "title",
+            "description",
+            "status",
+            "category",
+            "url",
+            "poster_url",
+            "client_id",
+            "client_name",
+            "client_logo_url",
+            "offer_code",
+            "points_required",
+            "end_date",
+            "is_featured",
+        ]
+
+
+class AdminOfferUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Offer
+        fields = [
+            "title",
+            "description",
+            "status",
+            "category",
+            "url",
+            "poster_url",
+            "client_id",
+            "client_name",
+            "client_logo_url",
+            "offer_code",
+            "points_required",
+            "end_date",
+            "is_featured",
+        ]
+        extra_kwargs = {field: {"required": False} for field in fields}

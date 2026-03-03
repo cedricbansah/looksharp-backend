@@ -1,11 +1,14 @@
 import logging
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 import requests as http_requests
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 import services.paystack as paystack_service
@@ -24,6 +27,13 @@ logger = logging.getLogger(__name__)
 
 class VerificationListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        throttles = super().get_throttles()
+        if self.request.method == "POST":
+            self.throttle_scope = "verification_create"
+            throttles.append(ScopedRateThrottle())
+        return throttles
 
     def get_queryset(self):
         return Verification.objects.filter(user_id=self.request.user.id).order_by("-submitted_at")
@@ -54,6 +64,11 @@ class AdminVerificationListView(generics.ListAPIView):
 class AdminVerificationApproveView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=None,
+        responses={200: VerificationListSerializer, 404: OpenApiTypes.OBJECT},
+        description="Approve a verification and mark user as verified.",
+    )
     def post(self, request, verification_id):
         with transaction.atomic():
             verification = Verification.objects.select_for_update().filter(id=verification_id).first()
@@ -83,6 +98,11 @@ class AdminVerificationApproveView(APIView):
 class AdminVerificationRejectView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=VerificationRejectSerializer,
+        responses={200: VerificationListSerializer, 404: OpenApiTypes.OBJECT},
+        description="Reject a verification with a reason and unverify the user.",
+    )
     def post(self, request, verification_id):
         payload = VerificationRejectSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
@@ -115,6 +135,15 @@ class AdminVerificationRejectView(APIView):
 class AdminCreateRecipientView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=None,
+        responses={
+            201: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+            502: OpenApiTypes.OBJECT,
+        },
+        description="Create a Paystack transfer recipient from verification data.",
+    )
     def post(self, request, verification_id):
         verification = Verification.objects.filter(id=verification_id).first()
         if not verification:

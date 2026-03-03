@@ -19,10 +19,7 @@ class ResponseListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Response.objects.filter(
-            user_id=self.request.user.id,
-            is_deleted=False,
-        ).order_by("-submitted_at")
+        return Response.objects.filter(user_id=self.request.user.id).order_by("-submitted_at")
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -58,4 +55,8 @@ class AdminResponseListView(generics.ListAPIView):
     serializer_class = ResponseListSerializer
 
     def get_queryset(self):
-        return Response.objects.filter(is_deleted=False).order_by("-submitted_at")
+        queryset = Response.objects.all()
+        survey_id = self.request.query_params.get("survey_id")
+        if survey_id:
+            queryset = queryset.filter(survey_id=survey_id)
+        return queryset.order_by("-submitted_at")

@@ -1,0 +1,442 @@
+{
+  "clients": {
+    "sampled_docs": 6,
+    "fields": {
+      "_seeded": [
+        "bool"
+      ],
+      "address": [
+        "str"
+      ],
+      "client_code": [
+        "str"
+      ],
+      "created_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "description": [
+        "str"
+      ],
+      "email": [
+        "str"
+      ],
+      "is_deleted": [
+        "bool"
+      ],
+      "logo_url": [
+        "str"
+      ],
+      "name": [
+        "str"
+      ],
+      "phone": [
+        "str"
+      ],
+      "updated_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "website_url": [
+        "str"
+      ]
+    }
+  },
+  "counters": {
+    "sampled_docs": 1,
+    "fields": {
+      "active_offers": [
+        "int"
+      ],
+      "active_surveys": [
+        "int"
+      ],
+      "total_paid_out": [
+        "int"
+      ],
+      "total_responses": [
+        "int"
+      ],
+      "updated_at": [
+        "DatetimeWithNanoseconds"
+      ]
+    }
+  },
+  "offer_categories": {
+    "sampled_docs": 6,
+    "fields": {
+      "icon": [
+        "str"
+      ],
+      "id": [
+        "str"
+      ],
+      "name": [
+        "str"
+      ],
+      "offer_count": [
+        "int"
+      ]
+    }
+  },
+  "offers": {
+    "sampled_docs": 5,
+    "fields": {
+      "_seeded": [
+        "bool"
+      ],
+      "category": [
+        "str"
+      ],
+      "client_id": [
+        "str"
+      ],
+      "client_logo_url": [
+        "str"
+      ],
+      "client_name": [
+        "str"
+      ],
+      "created_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "days_remaining": [
+        "int"
+      ],
+      "description": [
+        "str"
+      ],
+      "end_date": [
+        "DatetimeWithNanoseconds"
+      ],
+      "is_deleted": [
+        "bool"
+      ],
+      "is_featured": [
+        "bool"
+      ],
+      "offer_code": [
+        "str"
+      ],
+      "poster_url": [
+        "str"
+      ],
+      "sms_sent": [
+        "bool"
+      ],
+      "sms_sent_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "status": [
+        "str"
+      ],
+      "title": [
+        "str"
+      ],
+      "updated_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "url": [
+        "str"
+      ]
+    }
+  },
+  "questions": {
+    "sampled_docs": 23,
+    "fields": {
+      "_seeded": [
+        "bool"
+      ],
+      "choices": [
+        "array",
+        "null"
+      ],
+      "created_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "is_deleted": [
+        "bool"
+      ],
+      "position_index": [
+        "int"
+      ],
+      "question_subtext": [
+        "null",
+        "str"
+      ],
+      "question_text": [
+        "str"
+      ],
+      "question_type": [
+        "str"
+      ],
+      "scale_lower_limit": [
+        "int",
+        "null"
+      ],
+      "scale_upper_limit": [
+        "int",
+        "null"
+      ],
+      "survey_id": [
+        "str"
+      ],
+      "updated_at": [
+        "DatetimeWithNanoseconds"
+      ]
+    }
+  },
+  "redemptions": {
+    "sampled_docs": 26,
+    "fields": {
+      "client_name": [
+        "str"
+      ],
+      "offer_code": [
+        "str"
+      ],
+      "offer_id": [
+        "str"
+      ],
+      "offer_title": [
+        "str"
+      ],
+      "redeemed_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "user_id": [
+        "str"
+      ]
+    }
+  },
+  "responses": {
+    "sampled_docs": 7,
+    "fields": {
+      "answers": [
+        "array"
+      ],
+      "is_deleted": [
+        "bool"
+      ],
+      "points_earned": [
+        "int"
+      ],
+      "submitted_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "survey_id": [
+        "str"
+      ],
+      "survey_title": [
+        "str"
+      ],
+      "user_email": [
+        "str"
+      ],
+      "user_id": [
+        "str"
+      ]
+    }
+  },
+  "sms_events": {
+    "sampled_docs": 15,
+    "fields": {
+      "collection": [
+        "str"
+      ],
+      "document_id": [
+        "str"
+      ],
+      "processed_at": [
+        "DatetimeWithNanoseconds"
+      ]
+    }
+  },
+  "survey_categories": {
+    "sampled_docs": 8,
+    "fields": {
+      "icon": [
+        "str"
+      ],
+      "id": [
+        "str"
+      ],
+      "name": [
+        "str"
+      ],
+      "survey_count": [
+        "int"
+      ]
+    }
+  },
+  "surveys": {
+    "sampled_docs": 7,
+    "fields": {
+      "_seeded": [
+        "bool"
+      ],
+      "category": [
+        "str"
+      ],
+      "client_id": [
+        "str"
+      ],
+      "client_name": [
+        "str"
+      ],
+      "created_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "created_by": [
+        "null"
+      ],
+      "description": [
+        "null",
+        "str"
+      ],
+      "end_date": [
+        "DatetimeWithNanoseconds",
+        "null"
+      ],
+      "estimated_time": [
+        "int",
+        "null"
+      ],
+      "is_deleted": [
+        "bool"
+      ],
+      "points": [
+        "int"
+      ],
+      "question_count": [
+        "int"
+      ],
+      "response_count": [
+        "int"
+      ],
+      "sms_sent": [
+        "bool"
+      ],
+      "sms_sent_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "status": [
+        "str"
+      ],
+      "title": [
+        "str"
+      ],
+      "updated_at": [
+        "DatetimeWithNanoseconds"
+      ]
+    }
+  },
+  "users": {
+    "sampled_docs": 8,
+    "fields": {
+      "country": [
+        "str"
+      ],
+      "created_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "date_of_birth": [
+        "DatetimeWithNanoseconds",
+        "null"
+      ],
+      "display_name": [
+        "null"
+      ],
+      "email": [
+        "str"
+      ],
+      "first_name": [
+        "str"
+      ],
+      "gender": [
+        "str"
+      ],
+      "is_admin": [
+        "bool"
+      ],
+      "is_verified": [
+        "bool"
+      ],
+      "last_name": [
+        "str"
+      ],
+      "offers_claimed": [
+        "array"
+      ],
+      "phone": [
+        "str"
+      ],
+      "points": [
+        "int"
+      ],
+      "profile_photo_url": [
+        "str"
+      ],
+      "recipient_code": [
+        "str"
+      ],
+      "surveys_completed": [
+        "array"
+      ],
+      "updated_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "welcome_bonus_claimed": [
+        "bool"
+      ]
+    }
+  },
+  "verifications": {
+    "sampled_docs": 2,
+    "fields": {
+      "full_name": [
+        "str"
+      ],
+      "gender": [
+        "str"
+      ],
+      "id_back_url": [
+        "str"
+      ],
+      "id_front_url": [
+        "str"
+      ],
+      "id_number": [
+        "str"
+      ],
+      "id_type": [
+        "str"
+      ],
+      "mobile_number": [
+        "str"
+      ],
+      "network_provider": [
+        "str"
+      ],
+      "rejection_reason": [
+        "str"
+      ],
+      "reviewed_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "reviewed_by": [
+        "str"
+      ],
+      "selfie_url": [
+        "str"
+      ],
+      "status": [
+        "str"
+      ],
+      "submitted_at": [
+        "DatetimeWithNanoseconds"
+      ],
+      "user_id": [
+        "str"
+      ]
+    }
+  }
+}

@@ -3,7 +3,7 @@ name: CD
 on:
   push:
     branches:
-      - main
+      - dev
   workflow_dispatch:
     inputs:
       target:
@@ -15,130 +15,167 @@ on:
           - staging
           - production
       image_tag:
-        description: Optional existing image tag (example: sha-abc123def456)
+        description: Optional existing Artifact Registry image tag (example: sha-abc123def456)
         required: false
         type: string
 
 concurrency:
-  group: cd-${{ github.workflow }}-${{ github.ref }}
+  group: cd-${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
   contents: read
-  packages: write
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  id-token: write
 
 jobs:
-  build-and-publish:
-    name: Build and publish image
+  deploy-staging:
+    name: Deploy staging (Cloud Run)
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.image.outputs.image }}
+    if: (github.event_name == 'push' && vars.ENABLE_AUTO_STAGING_DEPLOY == 'true') || (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
+    environment: staging
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Compute image tag
+      - name: Resolve image tag
         id: vars
         run: |
-          echo "sha_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=${{ steps.vars.outputs.sha_tag }}
-            type=raw,value=main,enable=${{ github.event_name == 'push' }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Export primary image reference
-        id: image
-        run: |
-          echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.sha_tag }}" >> "$GITHUB_OUTPUT"
-
-  deploy-staging:
-    name: Deploy staging
-    runs-on: ubuntu-latest
-    needs: build-and-publish
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
-    environment: staging
-
-    steps:
-      - name: Resolve image for deploy
-        id: deploy-image
-        run: |
-          IMAGE="${{ needs.build-and-publish.outputs.image }}"
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
-            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }}"
+            echo "image_tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            echo "skip_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "image_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+            echo "skip_build=false" >> "$GITHUB_OUTPUT"
           fi
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
-      - name: Trigger staging deploy webhook
-        env:
-          DEPLOY_WEBHOOK: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}
-          IMAGE: ${{ steps.deploy-image.outputs.image }}
+      - name: Authenticate to Google Cloud (service account key)
+        if: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Authenticate to Google Cloud (WIF)
+        if: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY == '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Configure Artifact Registry Docker auth
         run: |
-          if [ -z "$DEPLOY_WEBHOOK" ]; then
-            echo "STAGING_DEPLOY_WEBHOOK_URL is not configured. Skipping deploy trigger."
-            exit 0
-          fi
+          gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
 
-          curl -fsSL -X POST "$DEPLOY_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "{\"image\":\"$IMAGE\",\"sha\":\"${GITHUB_SHA}\"}"
-          echo "Staging deploy triggered for $IMAGE"
+      - name: Deploy to Cloud Run (staging)
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          SKIP_BUILD: ${{ steps.vars.outputs.skip_build }}
+          CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          CLOUD_RUN_MIGRATION_JOB: ${{ vars.CLOUD_RUN_MIGRATION_JOB }}
+          DJANGO_SETTINGS_MODULE: ${{ vars.DJANGO_SETTINGS_MODULE }}
+          ALLOW_UNAUTHENTICATED: ${{ vars.ALLOW_UNAUTHENTICATED }}
+          RUN_MIGRATIONS: ${{ vars.RUN_MIGRATIONS }}
+          CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE }}
+          CLOUD_RUN_VPC_CONNECTOR: ${{ vars.CLOUD_RUN_VPC_CONNECTOR }}
+          CLOUD_RUN_VPC_EGRESS: ${{ vars.CLOUD_RUN_VPC_EGRESS }}
+          CLOUD_RUN_MEMORY: ${{ vars.CLOUD_RUN_MEMORY }}
+          CLOUD_RUN_CPU: ${{ vars.CLOUD_RUN_CPU }}
+          CLOUD_RUN_MIN_INSTANCES: ${{ vars.CLOUD_RUN_MIN_INSTANCES }}
+          CLOUD_RUN_MAX_INSTANCES: ${{ vars.CLOUD_RUN_MAX_INSTANCES }}
+          CLOUD_RUN_TIMEOUT: ${{ vars.CLOUD_RUN_TIMEOUT }}
+          CLOUD_RUN_CONCURRENCY: ${{ vars.CLOUD_RUN_CONCURRENCY }}
+          CLOUD_RUN_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_SERVICE_ACCOUNT }}
+          CLOUD_RUN_JOB_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_JOB_SERVICE_ACCOUNT }}
+          CLOUD_RUN_JOB_MEMORY: ${{ vars.CLOUD_RUN_JOB_MEMORY }}
+          CLOUD_RUN_JOB_CPU: ${{ vars.CLOUD_RUN_JOB_CPU }}
+          CLOUD_RUN_JOB_TASK_TIMEOUT: ${{ vars.CLOUD_RUN_JOB_TASK_TIMEOUT }}
+          CLOUD_RUN_JOB_TASKS: ${{ vars.CLOUD_RUN_JOB_TASKS }}
+          CLOUD_RUN_JOB_MAX_RETRIES: ${{ vars.CLOUD_RUN_JOB_MAX_RETRIES }}
+          CLOUD_RUN_ENV_VARS: ${{ vars.CLOUD_RUN_ENV_VARS }}
+          CLOUD_RUN_SECRET_VARS: ${{ vars.CLOUD_RUN_SECRET_VARS }}
+        run: ./scripts/deploy_cloud_run.sh
 
   deploy-production:
-    name: Deploy production
+    name: Deploy production (Cloud Run)
     runs-on: ubuntu-latest
-    needs: build-and-publish
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'production'
     environment: production
 
     steps:
-      - name: Resolve image for deploy
-        id: deploy-image
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: vars
         run: |
-          IMAGE="${{ needs.build-and-publish.outputs.image }}"
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
-            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }}"
+            echo "image_tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            echo "skip_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "image_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+            echo "skip_build=false" >> "$GITHUB_OUTPUT"
           fi
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
-      - name: Trigger production deploy webhook
-        env:
-          DEPLOY_WEBHOOK: ${{ secrets.PRODUCTION_DEPLOY_WEBHOOK_URL }}
-          IMAGE: ${{ steps.deploy-image.outputs.image }}
+      - name: Authenticate to Google Cloud (service account key)
+        if: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Authenticate to Google Cloud (WIF)
+        if: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY == '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Configure Artifact Registry Docker auth
         run: |
-          if [ -z "$DEPLOY_WEBHOOK" ]; then
-            echo "PRODUCTION_DEPLOY_WEBHOOK_URL is not configured. Skipping deploy trigger."
-            exit 0
-          fi
+          gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
 
-          curl -fsSL -X POST "$DEPLOY_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "{\"image\":\"$IMAGE\",\"sha\":\"${GITHUB_SHA}\"}"
-          echo "Production deploy triggered for $IMAGE"
+      - name: Deploy to Cloud Run (production)
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          SKIP_BUILD: ${{ steps.vars.outputs.skip_build }}
+          CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          CLOUD_RUN_MIGRATION_JOB: ${{ vars.CLOUD_RUN_MIGRATION_JOB }}
+          DJANGO_SETTINGS_MODULE: ${{ vars.DJANGO_SETTINGS_MODULE }}
+          ALLOW_UNAUTHENTICATED: ${{ vars.ALLOW_UNAUTHENTICATED }}
+          RUN_MIGRATIONS: ${{ vars.RUN_MIGRATIONS }}
+          CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE }}
+          CLOUD_RUN_VPC_CONNECTOR: ${{ vars.CLOUD_RUN_VPC_CONNECTOR }}
+          CLOUD_RUN_VPC_EGRESS: ${{ vars.CLOUD_RUN_VPC_EGRESS }}
+          CLOUD_RUN_MEMORY: ${{ vars.CLOUD_RUN_MEMORY }}
+          CLOUD_RUN_CPU: ${{ vars.CLOUD_RUN_CPU }}
+          CLOUD_RUN_MIN_INSTANCES: ${{ vars.CLOUD_RUN_MIN_INSTANCES }}
+          CLOUD_RUN_MAX_INSTANCES: ${{ vars.CLOUD_RUN_MAX_INSTANCES }}
+          CLOUD_RUN_TIMEOUT: ${{ vars.CLOUD_RUN_TIMEOUT }}
+          CLOUD_RUN_CONCURRENCY: ${{ vars.CLOUD_RUN_CONCURRENCY }}
+          CLOUD_RUN_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_SERVICE_ACCOUNT }}
+          CLOUD_RUN_JOB_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_JOB_SERVICE_ACCOUNT }}
+          CLOUD_RUN_JOB_MEMORY: ${{ vars.CLOUD_RUN_JOB_MEMORY }}
+          CLOUD_RUN_JOB_CPU: ${{ vars.CLOUD_RUN_JOB_CPU }}
+          CLOUD_RUN_JOB_TASK_TIMEOUT: ${{ vars.CLOUD_RUN_JOB_TASK_TIMEOUT }}
+          CLOUD_RUN_JOB_TASKS: ${{ vars.CLOUD_RUN_JOB_TASKS }}
+          CLOUD_RUN_JOB_MAX_RETRIES: ${{ vars.CLOUD_RUN_JOB_MAX_RETRIES }}
+          CLOUD_RUN_ENV_VARS: ${{ vars.CLOUD_RUN_ENV_VARS }}
+          CLOUD_RUN_SECRET_VARS: ${{ vars.CLOUD_RUN_SECRET_VARS }}
+        run: ./scripts/deploy_cloud_run.sh
