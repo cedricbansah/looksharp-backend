@@ -13,7 +13,7 @@ CLIENT_WRITABLE_FIELDS = [
     "profile_photo_url",
 ]
 
-# Server-controlled fields — read-only in all client-facing serializers
+# Server-controlled fields - read-only in all client-facing serializers
 SERVER_CONTROLLED_FIELDS = [
     "points",
     "is_verified",
@@ -48,7 +48,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
-    """PATCH /users/me/ — only client-writable fields accepted."""
+    """PATCH /users/me/ - only client-writable fields accepted."""
 
     class Meta:
         model = User
@@ -58,3 +58,22 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         # Ignore unexpected keys so server-controlled fields are effectively no-op.
         filtered = {key: value for key, value in data.items() if key in self.fields}
         return super().to_internal_value(filtered)
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "is_verified",
+            "is_admin",
+            "points",
+            "recipient_code",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields

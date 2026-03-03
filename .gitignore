@@ -9,3 +9,4 @@ firebase-service-account.json
 dist/
 *.egg-info/
 .pytest_cache/
+docs/

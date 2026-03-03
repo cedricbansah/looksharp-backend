@@ -3,7 +3,7 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 
-from apps.core.permissions import IsVerified
+from apps.core.permissions import IsAdmin, IsVerified
 from apps.users.models import User
 
 from .models import Withdrawal
@@ -63,3 +63,11 @@ class WithdrawalListCreateView(generics.ListCreateAPIView):
             WithdrawalListSerializer(withdrawal).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class AdminWithdrawalListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    serializer_class = WithdrawalListSerializer
+
+    def get_queryset(self):
+        return Withdrawal.objects.all().order_by("-created_at")

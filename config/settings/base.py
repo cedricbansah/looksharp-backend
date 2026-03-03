@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env = environ.Env()
@@ -84,6 +85,32 @@ CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_TASK_SERIALIZER = "json"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_BEAT_SCHEDULE = {
+    "offers-recompute-status-daily": {
+        "task": "apps.offers.tasks.recompute_status",
+        "schedule": crontab(minute=0, hour=0),
+    },
+    "counters-recompute-active-surveys-hourly": {
+        "task": "apps.counters.tasks.recompute_active_surveys",
+        "schedule": crontab(minute=0),
+    },
+    "counters-recompute-active-offers-hourly": {
+        "task": "apps.counters.tasks.recompute_active_offers",
+        "schedule": crontab(minute=5),
+    },
+    "counters-recompute-total-responses-hourly": {
+        "task": "apps.counters.tasks.recompute_total_responses",
+        "schedule": crontab(minute=10),
+    },
+    "counters-recompute-total-paid-out-hourly": {
+        "task": "apps.counters.tasks.recompute_total_paid_out",
+        "schedule": crontab(minute=15),
+    },
+    "counters-recompute-extended-hourly": {
+        "task": "apps.counters.tasks.recompute_extended_dashboard",
+        "schedule": crontab(minute=20),
+    },
+}
 
 FIREBASE_SERVICE_ACCOUNT_KEY_PATH = env(
     "FIREBASE_SERVICE_ACCOUNT_KEY_PATH",
