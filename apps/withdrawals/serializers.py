@@ -13,7 +13,6 @@ class WithdrawalCreateSerializer(serializers.ModelSerializer):
         fields = [
             "amount_ghs",
             "points_converted",
-            "transfer_reference",
         ]
 
     def validate_amount_ghs(self, value):

@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: looksharp
       POSTGRES_USER: looksharp_app
-      POSTGRES_PASSWORD: looksharpapp123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-looksharpapp123}
     ports: ["5432:5432"]
     volumes: [postgres_data:/var/lib/postgresql/data]
 

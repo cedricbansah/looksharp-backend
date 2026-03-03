@@ -1,3 +1,5 @@
+import logging
+
 from django.db import transaction
 from django.db.models import F
 from drf_spectacular.types import OpenApiTypes
@@ -16,7 +18,20 @@ from .serializers import (
     UserUpdateSerializer,
 )
 
+logger = logging.getLogger(__name__)
 WELCOME_BONUS_POINTS = 100
+
+
+def _sync_firebase_admin_claim(user_id: str) -> None:
+    from firebase_admin import auth as firebase_auth
+
+    from apps.core.authentication import _get_firebase_app
+
+    _get_firebase_app()
+    user_record = firebase_auth.get_user(user_id)
+    claims = dict(user_record.custom_claims or {})
+    claims["admin"] = True
+    firebase_auth.set_custom_user_claims(user_id, claims)
 
 
 class MeView(generics.RetrieveUpdateAPIView):
@@ -79,6 +94,15 @@ class GrantAdminView(APIView):
         user = User.objects.filter(id=user_id, is_deleted=False).first()
         if not user:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            _sync_firebase_admin_claim(user.id)
+        except Exception as exc:
+            logger.exception("Failed to sync Firebase admin claim for user=%s: %s", user.id, exc)
+            return Response(
+                {"error": "Failed to sync Firebase admin claim."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         if not user.is_admin:
             user.is_admin = True

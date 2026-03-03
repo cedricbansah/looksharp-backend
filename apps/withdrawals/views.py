@@ -1,13 +1,20 @@
+import uuid
+
 from django.db import IntegrityError, transaction
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.core.permissions import IsAdmin, IsVerified
 from apps.users.models import User
 
 from .models import Withdrawal
 from .serializers import WithdrawalCreateSerializer, WithdrawalListSerializer
+
+
+def _transfer_reference() -> str:
+    return f"wd_{uuid.uuid4().hex}"
 
 
 class WithdrawalListCreateView(generics.ListCreateAPIView):
@@ -17,6 +24,13 @@ class WithdrawalListCreateView(generics.ListCreateAPIView):
     """
 
     permission_classes = [IsAuthenticated, IsVerified]
+
+    def get_throttles(self):
+        throttles = super().get_throttles()
+        if self.request.method == "POST":
+            self.throttle_scope = "withdrawal_create"
+            throttles.append(ScopedRateThrottle())
+        return throttles
 
     def get_queryset(self):
         return Withdrawal.objects.filter(
@@ -62,6 +76,7 @@ class WithdrawalListCreateView(generics.ListCreateAPIView):
                     user_id=user.id,
                     status="pending",
                     recipient_code=user.recipient_code,
+                    transfer_reference=_transfer_reference(),
                 )
             except IntegrityError:
                 return DRFResponse(

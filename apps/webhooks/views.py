@@ -12,6 +12,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,12 @@ class PaystackWebhookView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+
+    def get_throttles(self):
+        self.throttle_scope = "paystack_webhook"
+        throttles = super().get_throttles()
+        throttles.append(ScopedRateThrottle())
+        return throttles
 
     @extend_schema(
         request=OpenApiTypes.OBJECT,

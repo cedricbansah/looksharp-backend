@@ -145,15 +145,32 @@ class TestAdminUserEndpoints:
         mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION="Bearer token")
-        response = client.post(f"/api/v1/admin/users/{target.id}/grant-admin/", {}, format="json")
+        with patch("apps.users.views._sync_firebase_admin_claim") as mock_sync_claim:
+            response = client.post(f"/api/v1/admin/users/{target.id}/grant-admin/", {}, format="json")
 
         assert response.status_code == 200
         target.refresh_from_db()
+        mock_sync_claim.assert_called_once_with(target.id)
         assert target.is_admin is True
 
+    def test_grant_admin_returns_502_when_firebase_sync_fails(self, mock_firebase):
+        admin = User.objects.create(id="admin-3", email="admin3@b.com", is_admin=True)
+        target = User.objects.create(id="member-3", email="member3@b.com", is_admin=False)
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        with patch("apps.users.views._sync_firebase_admin_claim") as mock_sync_claim:
+            mock_sync_claim.side_effect = RuntimeError("firebase down")
+            response = client.post(f"/api/v1/admin/users/{target.id}/grant-admin/", {}, format="json")
+
+        assert response.status_code == 502
+        target.refresh_from_db()
+        assert target.is_admin is False
+
     def test_non_admin_cannot_grant_admin(self, mock_firebase):
-        user = User.objects.create(id="member-3", email="member3@b.com", is_admin=False)
-        target = User.objects.create(id="member-4", email="member4@b.com", is_admin=False)
+        user = User.objects.create(id="member-4", email="member4@b.com", is_admin=False)
+        target = User.objects.create(id="member-5", email="member5@b.com", is_admin=False)
 
         mock_firebase.return_value = {"uid": user.id, "email": user.email}
         client = APIClient()

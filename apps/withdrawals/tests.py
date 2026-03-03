@@ -33,13 +33,13 @@ class TestWithdrawalEndpoint:
             {
                 "amount_ghs": "10.00",
                 "points_converted": 100,
-                "transfer_reference": "REF_unique_1",
             },
             format="json",
         )
         assert resp.status_code == 201
         created = Withdrawal.objects.get(user_id="u1")
         assert created.recipient_code == "RCP_USER_1"
+        assert created.transfer_reference.startswith("wd_")
 
     def test_unverified_user_gets_403(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u2", "email": "b@b.com"}
@@ -51,7 +51,6 @@ class TestWithdrawalEndpoint:
             {
                 "amount_ghs": "10.00",
                 "points_converted": 100,
-                "transfer_reference": "REF_2",
             },
             format="json",
         )
@@ -72,7 +71,6 @@ class TestWithdrawalEndpoint:
             {
                 "amount_ghs": "2.00",
                 "points_converted": 20,
-                "transfer_reference": "REF_3",
             },
             format="json",
         )
@@ -94,7 +92,6 @@ class TestWithdrawalEndpoint:
             {
                 "amount_ghs": "10.00",
                 "points_converted": 100,
-                "transfer_reference": "REF_4",
             },
             format="json",
         )
@@ -124,7 +121,6 @@ class TestWithdrawalEndpoint:
             {
                 "amount_ghs": "10.00",
                 "points_converted": 100,
-                "transfer_reference": "REF_new",
             },
             format="json",
         )
@@ -140,7 +136,6 @@ class TestWithdrawalEndpoint:
             {
                 "amount_ghs": "10.00",
                 "points_converted": 100,
-                "transfer_reference": "REF_6",
             },
             format="json",
         )
@@ -163,10 +158,11 @@ class TestWithdrawalEndpoint:
                 "amount_ghs": "10.00",
                 "points_converted": 100,
                 "recipient_code": "RCP_ATTACKER",
-                "transfer_reference": "REF_7",
+                "transfer_reference": "ATTACKER_REFERENCE",
             },
             format="json",
         )
         assert resp.status_code == 201
         created = Withdrawal.objects.get(user_id="u7")
         assert created.recipient_code == "RCP_USER_7"
+        assert created.transfer_reference != "ATTACKER_REFERENCE"

@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 import services.paystack as paystack_service
@@ -26,6 +27,13 @@ logger = logging.getLogger(__name__)
 
 class VerificationListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        throttles = super().get_throttles()
+        if self.request.method == "POST":
+            self.throttle_scope = "verification_create"
+            throttles.append(ScopedRateThrottle())
+        return throttles
 
     def get_queryset(self):
         return Verification.objects.filter(user_id=self.request.user.id).order_by("-submitted_at")
