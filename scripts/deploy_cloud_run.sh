@@ -29,11 +29,15 @@ build_service_args() {
   local -n args_ref=$1
   local combined_env_vars=""
   combined_env_vars="$(build_combined_env_vars)"
+  local service_command="${CLOUD_RUN_SERVICE_COMMAND:-gunicorn}"
+  local service_args_csv="${CLOUD_RUN_SERVICE_ARGS:-config.wsgi:application,--bind,0.0.0.0:8080,--workers,2,--timeout,120}"
 
   args_ref+=(--project "$GCP_PROJECT_ID")
   args_ref+=(--region "$GCP_REGION")
   args_ref+=(--platform managed)
   args_ref+=(--set-env-vars "$combined_env_vars")
+  args_ref+=(--command "$service_command")
+  args_ref+=(--args "$service_args_csv")
 
   if bool_true "${ALLOW_UNAUTHENTICATED:-true}"; then
     args_ref+=(--allow-unauthenticated)
