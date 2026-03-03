@@ -50,6 +50,10 @@ Optional job-specific variables:
 Repo-level variable for auto staging deploy:
 - `ENABLE_AUTO_STAGING_DEPLOY=true`
 
+Auth mode toggle variable (set per environment):
+- `USE_GCP_SERVICE_ACCOUNT_KEY=true` to use `GCP_SERVICE_ACCOUNT_KEY`
+- leave unset/`false` to use Workload Identity Federation
+
 ## 2) Required GCP resources
 
 - Artifact Registry Docker repository.
