@@ -1,3 +1,5 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -19,6 +21,11 @@ from .tasks import (
 class AdminDashboardView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=None,
+        responses={200: DashboardCounterSerializer},
+        description="Fetch admin dashboard counters.",
+    )
     def get(self, request):
         counter, _ = DashboardCounter.objects.get_or_create(id="dashboard")
         return Response(DashboardCounterSerializer(counter).data)
@@ -27,6 +34,11 @@ class AdminDashboardView(APIView):
 class AdminCounterRebuildView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=None,
+        responses={202: OpenApiTypes.OBJECT},
+        description="Dispatch asynchronous counter recompute tasks.",
+    )
     def post(self, request):
         recompute_active_surveys.delay()
         recompute_active_offers.delay()

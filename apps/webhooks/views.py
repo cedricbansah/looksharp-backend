@@ -3,6 +3,8 @@ import hmac
 import json
 import logging
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from django.conf import settings
 from django.db import transaction
 from django.db.models import F
@@ -66,6 +68,11 @@ class PaystackWebhookView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=OpenApiTypes.OBJECT,
+        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT, 401: OpenApiTypes.OBJECT},
+        description="Receive Paystack webhook callbacks and transition withdrawal states.",
+    )
     def post(self, request):
         # 1. Read raw bytes BEFORE any parsing (required for HMAC)
         raw_body = request.body

@@ -1,5 +1,7 @@
 from django.db import transaction
 from django.db.models import F
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -38,6 +40,11 @@ class MeView(generics.RetrieveUpdateAPIView):
 class WelcomeBonusClaimView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={200: OpenApiTypes.OBJECT},
+        description="Claim one-time welcome bonus for the authenticated user.",
+    )
     def post(self, request):
         bonus_awarded = False
         with transaction.atomic():
@@ -63,6 +70,11 @@ class AdminUserListView(generics.ListAPIView):
 class GrantAdminView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @extend_schema(
+        request=None,
+        responses={200: AdminUserSerializer, 404: OpenApiTypes.OBJECT},
+        description="Grant admin privileges to the target user.",
+    )
     def post(self, request, user_id):
         user = User.objects.filter(id=user_id, is_deleted=False).first()
         if not user:

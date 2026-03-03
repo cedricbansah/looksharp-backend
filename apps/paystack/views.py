@@ -1,5 +1,7 @@
 import logging
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 import requests as http_requests
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -22,6 +24,11 @@ class BanksView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        parameters=[BanksQuerySerializer],
+        responses={200: OpenApiTypes.OBJECT, 502: OpenApiTypes.OBJECT},
+        description="List banks/telcos from Paystack.",
+    )
     def get(self, request):
         serializer = BanksQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
@@ -41,6 +48,11 @@ class TransferRecipientsView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=TransferRecipientCreateSerializer,
+        responses={201: OpenApiTypes.OBJECT, 502: OpenApiTypes.OBJECT},
+        description="Create a Paystack transfer recipient.",
+    )
     def post(self, request):
         serializer = TransferRecipientCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -60,6 +72,11 @@ class TransfersView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=TransferCreateSerializer,
+        responses={201: OpenApiTypes.OBJECT, 502: OpenApiTypes.OBJECT},
+        description="Initiate a Paystack transfer.",
+    )
     def post(self, request):
         serializer = TransferCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -84,6 +101,11 @@ class FinalizeTransferView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={200: OpenApiTypes.OBJECT, 502: OpenApiTypes.OBJECT},
+        description="Finalize a Paystack transfer using a transfer code.",
+    )
     def post(self, request, transfer_code):
         serializer = FinalizeTransferPathSerializer(data={"transfer_code": transfer_code})
         serializer.is_valid(raise_exception=True)
