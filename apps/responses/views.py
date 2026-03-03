@@ -58,4 +58,8 @@ class AdminResponseListView(generics.ListAPIView):
     serializer_class = ResponseListSerializer
 
     def get_queryset(self):
-        return Response.objects.filter(is_deleted=False).order_by("-submitted_at")
+        queryset = Response.objects.filter(is_deleted=False)
+        survey_id = self.request.query_params.get("survey_id")
+        if survey_id:
+            queryset = queryset.filter(survey_id=survey_id)
+        return queryset.order_by("-submitted_at")

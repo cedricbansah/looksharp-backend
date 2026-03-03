@@ -153,3 +153,32 @@ class TestApplySideEffects:
         User.objects.create(id="u1", email="a@b.com", points=0, surveys_completed=[])
         apply_side_effects("s1", "u1")
         assert User.objects.get(id="u1").points == 40
+
+
+@pytest.mark.django_db
+class TestAdminResponseEndpoint:
+    def test_admin_can_filter_responses_by_survey_id(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "admin-1", "email": "admin@looksharp.co"}
+        User.objects.create(id="admin-1", email="admin@looksharp.co", is_admin=True)
+        Response.objects.create(
+            survey_id="s1",
+            user_id="u1",
+            submitted_at=timezone.now(),
+            answers=[],
+            points_earned=10,
+        )
+        Response.objects.create(
+            survey_id="s2",
+            user_id="u2",
+            submitted_at=timezone.now(),
+            answers=[],
+            points_earned=20,
+        )
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.get("/api/v1/admin/responses/?survey_id=s1")
+
+        assert resp.status_code == 200
+        assert len(resp.data["results"]) == 1
+        assert resp.data["results"][0]["survey_id"] == "s1"
