@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.paystack",
     "apps.counters",
     "apps.webhooks",
+    "apps.clients",
 ]
 
 MIDDLEWARE = [
@@ -143,6 +144,11 @@ FIREBASE_SERVICE_ACCOUNT_KEY_PATH = env(
 PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY", default="")
 HUBTEL_USERNAME = env("HUBTEL_USERNAME", default="")
 HUBTEL_PASSWORD = env("HUBTEL_PASSWORD", default="")
+CLOUDFLARE_ACCOUNT_ID = env("CLOUDFLARE_ACCOUNT_ID", default="")
+R2_ACCESS_KEY_ID = env("R2_ACCESS_KEY_ID", default="")
+R2_SECRET_ACCESS_KEY = env("R2_SECRET_ACCESS_KEY", default="")
+R2_BUCKET_NAME = env("R2_BUCKET_NAME", default="looksharp")
+R2_PUBLIC_URL = env("R2_PUBLIC_URL", default="")
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"

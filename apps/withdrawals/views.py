@@ -1,16 +1,23 @@
 import uuid
 
 from django.db import IntegrityError, transaction
+from django.db.models import F
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 
 from apps.core.permissions import IsAdmin, IsVerified
 from apps.users.models import User
 
 from .models import Withdrawal
-from .serializers import WithdrawalCreateSerializer, WithdrawalListSerializer
+from .serializers import (
+    AdminWithdrawalUpdateSerializer,
+    WithdrawalCreateSerializer,
+    WithdrawalListSerializer,
+)
 
 
 def _transfer_reference() -> str:
@@ -96,3 +103,41 @@ class AdminWithdrawalListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Withdrawal.objects.all().order_by("-created_at")
+
+
+class AdminWithdrawalUpdateView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def patch(self, request, withdrawal_id):
+        serializer = AdminWithdrawalUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            withdrawal = Withdrawal.objects.select_for_update().filter(id=withdrawal_id).first()
+            if not withdrawal:
+                return DRFResponse({"error": "Withdrawal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if withdrawal.status in {"completed", "failed"}:
+                return DRFResponse(
+                    {"error": "Withdrawal is already in a terminal state."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            user = User.objects.select_for_update().filter(id=withdrawal.user_id).first()
+            if not user:
+                return DRFResponse({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            target_status = serializer.validated_data["status"]
+            if target_status == "completed":
+                User.objects.filter(id=user.id).update(points=F("points") - withdrawal.points_converted)
+                withdrawal.status = "completed"
+                withdrawal.completed_at = timezone.now()
+                withdrawal.failure_reason = ""
+            else:
+                User.objects.filter(id=user.id).update(points=F("points") + withdrawal.points_converted)
+                withdrawal.status = "failed"
+                withdrawal.failure_reason = serializer.validated_data["failure_reason"]
+
+            withdrawal.save(update_fields=["status", "failure_reason", "completed_at", "updated_at"])
+
+        return DRFResponse(WithdrawalListSerializer(withdrawal).data, status=status.HTTP_200_OK)

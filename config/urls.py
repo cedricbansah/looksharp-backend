@@ -22,4 +22,7 @@ urlpatterns = [
     path("api/v1/admin/", include("apps.responses.admin_urls")),
     path("api/v1/admin/", include("apps.withdrawals.admin_urls")),
     path("api/v1/admin/", include("apps.verifications.admin_urls")),
+    path("api/v1/admin/", include("apps.surveys.admin_urls")),
+    path("api/v1/admin/", include("apps.offers.admin_urls")),
+    path("api/v1/admin/", include("apps.clients.admin_urls")),
 ]

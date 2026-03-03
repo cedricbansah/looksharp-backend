@@ -1,3 +1,3 @@
-from django.contrib import admin
+"""Django admin registrations for offers app."""
 
 # Register your models here.

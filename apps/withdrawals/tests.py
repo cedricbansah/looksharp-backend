@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.users.models import User
@@ -166,3 +167,109 @@ class TestWithdrawalEndpoint:
         created = Withdrawal.objects.get(user_id="u7")
         assert created.recipient_code == "RCP_USER_7"
         assert created.transfer_reference != "ATTACKER_REFERENCE"
+
+
+@pytest.mark.django_db
+class TestAdminWithdrawalUpdateEndpoint:
+    def test_admin_can_mark_completed_and_deduct_points(self, mock_firebase):
+        admin = User.objects.create(id="admin-wd-1", email="admin-wd-1@b.com", is_admin=True)
+        user = User.objects.create(id="user-wd-1", email="user-wd-1@b.com", points=300)
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="20.00",
+            points_converted=100,
+            recipient_code="RCP_1",
+            transfer_reference="REF_admin_completed",
+            status="processing",
+        )
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        resp = client.patch(
+            f"/api/v1/admin/withdrawals/{withdrawal.id}/",
+            {"status": "completed"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        withdrawal.refresh_from_db()
+        user.refresh_from_db()
+        assert withdrawal.status == "completed"
+        assert withdrawal.completed_at is not None
+        assert user.points == 200
+
+    def test_admin_can_mark_failed_and_return_points(self, mock_firebase):
+        admin = User.objects.create(id="admin-wd-2", email="admin-wd-2@b.com", is_admin=True)
+        user = User.objects.create(id="user-wd-2", email="user-wd-2@b.com", points=50)
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=25,
+            recipient_code="RCP_2",
+            transfer_reference="REF_admin_failed",
+            status="processing",
+        )
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        resp = client.patch(
+            f"/api/v1/admin/withdrawals/{withdrawal.id}/",
+            {"status": "failed", "failure_reason": "Bank rejected transfer"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        withdrawal.refresh_from_db()
+        user.refresh_from_db()
+        assert withdrawal.status == "failed"
+        assert withdrawal.failure_reason == "Bank rejected transfer"
+        assert user.points == 75
+
+    def test_admin_failed_status_requires_failure_reason(self, mock_firebase):
+        admin = User.objects.create(id="admin-wd-3", email="admin-wd-3@b.com", is_admin=True)
+        user = User.objects.create(id="user-wd-3", email="user-wd-3@b.com", points=50)
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=25,
+            recipient_code="RCP_3",
+            transfer_reference="REF_admin_failed_validate",
+            status="pending",
+        )
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        resp = client.patch(
+            f"/api/v1/admin/withdrawals/{withdrawal.id}/",
+            {"status": "failed"},
+            format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_admin_cannot_change_terminal_withdrawal(self, mock_firebase):
+        admin = User.objects.create(id="admin-wd-4", email="admin-wd-4@b.com", is_admin=True)
+        user = User.objects.create(id="user-wd-4", email="user-wd-4@b.com", points=500)
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=25,
+            recipient_code="RCP_4",
+            transfer_reference="REF_admin_terminal",
+            status="completed",
+            completed_at=timezone.now(),
+        )
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        resp = client.patch(
+            f"/api/v1/admin/withdrawals/{withdrawal.id}/",
+            {"status": "failed", "failure_reason": "late change"},
+            format="json",
+        )
+        assert resp.status_code == 409

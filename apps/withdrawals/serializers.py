@@ -46,3 +46,13 @@ class WithdrawalListSerializer(serializers.ModelSerializer):
             "completed_at",
         ]
         read_only_fields = fields
+
+
+class AdminWithdrawalUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=["failed", "completed"])
+    failure_reason = serializers.CharField(required=False, allow_blank=False)
+
+    def validate(self, attrs):
+        if attrs["status"] == "failed" and not attrs.get("failure_reason"):
+            raise serializers.ValidationError({"failure_reason": "failure_reason is required for failed status."})
+        return attrs
