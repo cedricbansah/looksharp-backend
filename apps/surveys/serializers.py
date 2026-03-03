@@ -1,3 +1,6 @@
+from typing import Any
+
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import Question, Survey
@@ -53,7 +56,8 @@ class SurveyDetailSerializer(SurveyListSerializer):
         fields = [*SurveyListSerializer.Meta.fields, "questions"]
         read_only_fields = fields
 
-    def get_questions(self, obj):
+    @extend_schema_field(QuestionSerializer(many=True))
+    def get_questions(self, obj) -> list[dict[str, Any]]:
         queryset = obj.questions.filter(is_deleted=False).order_by("position_index", "created_at")
         return QuestionSerializer(queryset, many=True).data
 

@@ -129,14 +129,19 @@ class AdminWithdrawalUpdateView(APIView):
 
             target_status = serializer.validated_data["status"]
             if target_status == "completed":
+                if withdrawal.points_converted > user.points:
+                    return DRFResponse(
+                        {"error": "Insufficient points to complete this withdrawal."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 User.objects.filter(id=user.id).update(points=F("points") - withdrawal.points_converted)
                 withdrawal.status = "completed"
                 withdrawal.completed_at = timezone.now()
                 withdrawal.failure_reason = ""
             else:
-                User.objects.filter(id=user.id).update(points=F("points") + withdrawal.points_converted)
                 withdrawal.status = "failed"
                 withdrawal.failure_reason = serializer.validated_data["failure_reason"]
+                withdrawal.completed_at = None
 
             withdrawal.save(update_fields=["status", "failure_reason", "completed_at", "updated_at"])
 

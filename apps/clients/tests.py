@@ -79,6 +79,18 @@ class TestAdminClientEndpoints:
         )
         assert resp.status_code == 400
 
+    def test_multiple_clients_can_have_blank_client_code(self, mock_firebase):
+        admin = User.objects.create(id="admin-client-blank", email="admin-client-blank@b.com", is_admin=True)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client_api = APIClient()
+        client_api.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        first = client_api.post("/api/v1/admin/clients/", {"name": "Blank 1"}, format="json")
+        second = client_api.post("/api/v1/admin/clients/", {"name": "Blank 2"}, format="json")
+        assert first.status_code == 201
+        assert second.status_code == 201
+
     def test_logo_upload(self, mock_firebase):
         admin = User.objects.create(id="admin-client-4", email="admin-client-4@b.com", is_admin=True)
         created = Client.objects.create(id="client-logo-1", name="Logo")
@@ -89,7 +101,7 @@ class TestAdminClientEndpoints:
 
         with patch("apps.clients.views.upload_file") as mock_upload:
             mock_upload.return_value = "https://cdn.example/clients/client-logo-1/logo"
-            file_obj = SimpleUploadedFile("logo.png", b"\x89PNG\r\n", content_type="image/png")
+            file_obj = SimpleUploadedFile("logo.png", b"\x89PNG\r\n\x1a\n", content_type="image/png")
             resp = client_api.post(
                 f"/api/v1/admin/clients/{created.id}/upload-logo/",
                 {"file": file_obj},
@@ -99,6 +111,21 @@ class TestAdminClientEndpoints:
         assert resp.status_code == 200
         created.refresh_from_db()
         assert created.logo_url == "https://cdn.example/clients/client-logo-1/logo"
+
+    def test_logo_upload_rejects_spoofed_content_type(self, mock_firebase):
+        admin = User.objects.create(id="admin-client-6", email="admin-client-6@b.com", is_admin=True)
+        created = Client.objects.create(id="client-logo-spoof", name="Logo Spoof")
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client_api = APIClient()
+        client_api.credentials(HTTP_AUTHORIZATION="Bearer token")
+        file_obj = SimpleUploadedFile("logo.png", b"not-a-real-image", content_type="image/png")
+        resp = client_api.post(
+            f"/api/v1/admin/clients/{created.id}/upload-logo/",
+            {"file": file_obj},
+            format="multipart",
+        )
+        assert resp.status_code == 400
 
     def test_delete_returns_409_when_referenced_by_survey_or_offer(self, mock_firebase):
         admin = User.objects.create(id="admin-client-5", email="admin-client-5@b.com", is_admin=True)

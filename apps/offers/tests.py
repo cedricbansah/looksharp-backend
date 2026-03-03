@@ -157,6 +157,22 @@ class TestAdminOfferEndpoints:
         )
         assert resp.status_code == 400
 
+    def test_admin_poster_upload_rejects_spoofed_content_type(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-5", email="admin-offer-5@b.com", is_admin=True)
+        offer = Offer.objects.create(id="offer-upload-3", title="Upload Offer 3", status="active")
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        file_obj = SimpleUploadedFile("poster.png", b"not-a-real-image", content_type="image/png")
+        resp = client.post(
+            f"/api/v1/admin/offers/{offer.id}/upload-poster/",
+            {"file": file_obj},
+            format="multipart",
+        )
+        assert resp.status_code == 400
+
     def test_admin_poster_upload_updates_offer_url(self, mock_firebase):
         admin = User.objects.create(id="admin-offer-4", email="admin-offer-4@b.com", is_admin=True)
         offer = Offer.objects.create(id="offer-upload-2", title="Upload Offer 2", status="active")
@@ -167,7 +183,7 @@ class TestAdminOfferEndpoints:
 
         with patch("apps.offers.views.upload_file") as mock_upload:
             mock_upload.return_value = "https://cdn.example/offers/offer-upload-2/poster"
-            file_obj = SimpleUploadedFile("poster.png", b"\x89PNG\r\n", content_type="image/png")
+            file_obj = SimpleUploadedFile("poster.png", b"\x89PNG\r\n\x1a\n", content_type="image/png")
             resp = client.post(
                 f"/api/v1/admin/offers/{offer.id}/upload-poster/",
                 {"file": file_obj},

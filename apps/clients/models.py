@@ -9,7 +9,7 @@ class Client(models.Model):
     address = models.CharField(max_length=500, blank=True)
     website_url = models.URLField(blank=True)
     description = models.TextField(blank=True)
-    client_code = models.CharField(max_length=64, blank=True, unique=True, db_index=True)
+    client_code = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)
     logo_url = models.URLField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -18,6 +18,18 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
 
 
+def _detected_image_content_type(file_obj):
+    header = file_obj.read(12)
+    file_obj.seek(0)
+    if header.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if header.startswith(b"RIFF") and header[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 class AdminClientListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
@@ -80,9 +92,15 @@ class AdminClientLogoUploadView(APIView):
             return Response({"error": "file is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         content_type = (file_obj.content_type or "").lower()
-        if content_type not in ALLOWED_IMAGE_TYPES:
+        detected_type = _detected_image_content_type(file_obj)
+        if detected_type not in ALLOWED_IMAGE_TYPES:
             return Response(
-                {"error": "Unsupported image type. Allowed: jpeg, png, webp."},
+                {"error": "Invalid image file. Allowed: jpeg, png, webp."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if content_type and content_type != detected_type:
+            return Response(
+                {"error": "File content does not match provided content type."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if file_obj.size > MAX_UPLOAD_SIZE_BYTES:
@@ -92,7 +110,7 @@ class AdminClientLogoUploadView(APIView):
             )
 
         key = f"clients/{client.id}/logo"
-        logo_url = upload_file(file_obj, key=key, content_type=content_type)
+        logo_url = upload_file(file_obj, key=key, content_type=detected_type)
         client.logo_url = logo_url
         client.save(update_fields=["logo_url", "updated_at"])
 

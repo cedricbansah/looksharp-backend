@@ -104,6 +104,12 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    "ENUM_NAME_OVERRIDES": {
+        "OfferStatusEnum": "apps.offers.models.OFFER_STATUS_CHOICES",
+        "SurveyStatusEnum": "apps.surveys.models.SURVEY_STATUS_CHOICES",
+        "VerificationStatusEnum": "apps.verifications.models.VERIFICATION_STATUS_CHOICES",
+        "WithdrawalStatusEnum": "apps.withdrawals.models.WITHDRAWAL_STATUS_CHOICES",
+    },
 }
 
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")

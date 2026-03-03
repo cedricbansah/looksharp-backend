@@ -199,7 +199,7 @@ class TestAdminWithdrawalUpdateEndpoint:
         assert withdrawal.completed_at is not None
         assert user.points == 200
 
-    def test_admin_can_mark_failed_and_return_points(self, mock_firebase):
+    def test_admin_can_mark_failed_without_changing_points(self, mock_firebase):
         admin = User.objects.create(id="admin-wd-2", email="admin-wd-2@b.com", is_admin=True)
         user = User.objects.create(id="user-wd-2", email="user-wd-2@b.com", points=50)
         withdrawal = Withdrawal.objects.create(
@@ -225,7 +225,34 @@ class TestAdminWithdrawalUpdateEndpoint:
         user.refresh_from_db()
         assert withdrawal.status == "failed"
         assert withdrawal.failure_reason == "Bank rejected transfer"
-        assert user.points == 75
+        assert user.points == 50
+
+    def test_admin_completed_rejects_when_user_points_insufficient(self, mock_firebase):
+        admin = User.objects.create(id="admin-wd-5", email="admin-wd-5@b.com", is_admin=True)
+        user = User.objects.create(id="user-wd-5", email="user-wd-5@b.com", points=10)
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=25,
+            recipient_code="RCP_5",
+            transfer_reference="REF_admin_insufficient",
+            status="processing",
+        )
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        resp = client.patch(
+            f"/api/v1/admin/withdrawals/{withdrawal.id}/",
+            {"status": "completed"},
+            format="json",
+        )
+        assert resp.status_code == 400
+        withdrawal.refresh_from_db()
+        user.refresh_from_db()
+        assert withdrawal.status == "processing"
+        assert user.points == 10
 
     def test_admin_failed_status_requires_failure_reason(self, mock_firebase):
         admin = User.objects.create(id="admin-wd-3", email="admin-wd-3@b.com", is_admin=True)

@@ -3,6 +3,12 @@ from rest_framework import serializers
 from .models import Client
 
 
+def _normalized_client_code(value):
+    if value in {"", None}:
+        return None
+    return value
+
+
 class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
@@ -37,6 +43,7 @@ class ClientCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_client_code(self, value):
+        value = _normalized_client_code(value)
         if value and Client.objects.filter(client_code=value).exists():
             raise serializers.ValidationError("A client with this client_code already exists.")
         return value
@@ -58,6 +65,7 @@ class ClientUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {field: {"required": False} for field in fields}
 
     def validate_client_code(self, value):
+        value = _normalized_client_code(value)
         if self.instance and value != self.instance.client_code:
             raise serializers.ValidationError("client_code is immutable once set.")
         return value
