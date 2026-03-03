@@ -1,6 +1,6 @@
 # Phase 3 Plan: Domain APIs + Admin Workflows
 
-**Status:** Proposed  
+**Status:** Implemented (ready for merge)  
 **Effective date:** 2026-03-02  
 **Repo:** `looksharp-backend` (`/Users/cedricbansah/Documents/looksharp-backend`)  
 **Depends on:** `BACKEND_CONTRACT_V1.md`, `FUNCTION_MIGRATION_MATRIX.md`, `RUNTIME_ARCHITECTURE_V1.md`, `PHASE_1_PLAN.md`, `PHASE_2_PLAN.md`
@@ -14,7 +14,7 @@ Phase 3 delivers the missing domain surface after Phase 2:
 - Admin workflows (`grant admin`, verification review, dashboard counters, core list/CRUD paths)
 - Counter reconciliation and offer scheduler jobs
 
-This phase closes the largest implementation gaps in the current repo, where `offers`, `verifications`, and `counters` are still scaffold-only and `surveys` has only a minimal model.
+This phase closed the largest implementation gaps in the repo: `offers`, `verifications`, and `counters` now have domain implementations and `surveys` has been extended with questions/domain APIs.
 
 ---
 
@@ -130,7 +130,7 @@ This phase closes the largest implementation gaps in the current repo, where `of
 
 ---
 
-## File Map (Planned)
+## File Map (Implemented)
 
 | File | Action |
 |---|---|
@@ -181,13 +181,13 @@ This phase closes the largest implementation gaps in the current repo, where `of
 
 ## Acceptance Criteria (Phase 3 Exit Gates)
 
-- [ ] All Phase 3 endpoints above implemented and routed.
-- [ ] Contract enums/fields respected (`approved|rejected`, `pending|processing|completed|failed`, etc.).
-- [ ] Server-controlled user fields cannot be client-mutated.
-- [ ] Welcome bonus and redemption are idempotent and transaction-protected.
-- [ ] Counter recompute and offer scheduler jobs are wired and test-covered.
-- [ ] Admin-only endpoints reject non-admin callers.
-- [ ] Test suite for `users/surveys/offers/verifications/counters` passes.
+- [x] All Phase 3 endpoints above implemented and routed.
+- [x] Contract enums/fields respected (`approved|rejected`, `pending|processing|completed|failed`, etc.).
+- [x] Server-controlled user fields cannot be client-mutated.
+- [x] Welcome bonus and redemption are idempotent and transaction-protected.
+- [x] Counter recompute and offer scheduler jobs are wired and test-covered.
+- [x] Admin-only endpoints reject non-admin callers.
+- [x] Test suite for `users/surveys/offers/verifications/counters` passes.
 
 ---
 
@@ -207,3 +207,11 @@ Manual smoke tests (staging):
 - Verification submit + admin approve/reject.
 - Admin grant-admin and dashboard counter rebuild.
 
+## Validation Snapshot (2026-03-03)
+
+- `python manage.py makemigrations --check --dry-run` -> `No changes detected`
+- `python manage.py check` -> no system check issues
+- `pytest -q` -> `59 passed`
+- CI expanded to include:
+  - migration drift gate (`makemigrations --check --dry-run`)
+  - lint/test coverage for `users/surveys/offers/verifications/counters`

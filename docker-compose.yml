@@ -4,8 +4,8 @@ services:
     image: postgres:15
     environment:
       POSTGRES_DB: looksharp
-      POSTGRES_USER: looksharp
-      POSTGRES_PASSWORD: looksharp
+      POSTGRES_USER: looksharp_app
+      POSTGRES_PASSWORD: looksharpapp123
     ports: ["5432:5432"]
     volumes: [postgres_data:/var/lib/postgresql/data]
 

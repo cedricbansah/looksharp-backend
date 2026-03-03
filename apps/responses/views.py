@@ -1,7 +1,9 @@
-from rest_framework import generics, status
 from django.db import IntegrityError
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
+
+from apps.core.permissions import IsAdmin
 
 from .models import Response
 from .serializers import ResponseCreateSerializer, ResponseListSerializer
@@ -49,3 +51,11 @@ class ResponseListCreateView(generics.ListCreateAPIView):
             ResponseListSerializer(response_obj).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class AdminResponseListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    serializer_class = ResponseListSerializer
+
+    def get_queryset(self):
+        return Response.objects.filter(is_deleted=False).order_by("-submitted_at")

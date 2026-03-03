@@ -73,6 +73,7 @@ jobs:
       - name: Django checks
         run: |
           python manage.py migrate --noinput
+          python manage.py makemigrations --check --dry-run
           python manage.py check
 
       - name: Ruff lint
@@ -81,27 +82,61 @@ jobs:
             apps/users/models.py \
             apps/users/serializers.py \
             apps/users/views.py \
+            apps/users/urls.py \
+            apps/users/admin_urls.py \
             apps/users/tests.py \
+            apps/surveys/models.py \
+            apps/surveys/serializers.py \
+            apps/surveys/views.py \
+            apps/surveys/urls.py \
+            apps/surveys/tests.py \
+            apps/offers/models.py \
+            apps/offers/serializers.py \
+            apps/offers/views.py \
+            apps/offers/urls.py \
+            apps/offers/redemption_urls.py \
+            apps/offers/tasks.py \
+            apps/offers/tests.py \
+            apps/verifications/models.py \
+            apps/verifications/serializers.py \
+            apps/verifications/views.py \
+            apps/verifications/urls.py \
+            apps/verifications/admin_urls.py \
+            apps/verifications/tests.py \
+            apps/counters/models.py \
+            apps/counters/serializers.py \
+            apps/counters/views.py \
+            apps/counters/urls.py \
+            apps/counters/tasks.py \
+            apps/counters/tests.py \
             apps/responses/models.py \
             apps/responses/serializers.py \
             apps/responses/views.py \
             apps/responses/tasks.py \
+            apps/responses/admin_urls.py \
             apps/responses/tests.py \
             apps/withdrawals/models.py \
             apps/withdrawals/serializers.py \
             apps/withdrawals/views.py \
+            apps/withdrawals/admin_urls.py \
             apps/withdrawals/tests.py \
             apps/webhooks/views.py \
             apps/webhooks/tests.py \
             apps/paystack/serializers.py \
             apps/paystack/views.py \
             apps/paystack/tests.py \
+            config/settings/base.py \
+            config/urls.py \
             services/paystack.py
 
       - name: Run tests
         run: |
           pytest -q \
             apps/users/tests.py \
+            apps/surveys/tests.py \
+            apps/offers/tests.py \
+            apps/verifications/tests.py \
+            apps/counters/tests.py \
             apps/responses/tests.py \
             apps/withdrawals/tests.py \
             apps/webhooks/tests.py \

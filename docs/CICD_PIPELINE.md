@@ -12,10 +12,14 @@ Runs on:
 
 Checks:
 - dependency install (`requirements/dev.txt`)
-- Django migrations + `manage.py check`
+- Django migrations + drift check + `manage.py check`
 - lint (`ruff`)
 - tests:
   - `apps/users/tests.py`
+  - `apps/surveys/tests.py`
+  - `apps/offers/tests.py`
+  - `apps/verifications/tests.py`
+  - `apps/counters/tests.py`
   - `apps/responses/tests.py`
   - `apps/withdrawals/tests.py`
   - `apps/webhooks/tests.py`
@@ -78,4 +82,3 @@ Recommended minimum rules:
 2. Merge to `main` -> CI validates again + staging deploy trigger runs.
 3. Verify staging.
 4. Run CD workflow manually with `target=production` to promote.
-
