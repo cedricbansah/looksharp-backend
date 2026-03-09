@@ -2,6 +2,7 @@ from .base import *  # noqa: F403
 from .base import env
 
 DEBUG = False
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=True)
@@ -15,14 +16,18 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = env(
 )
 X_FRAME_OPTIONS = env("X_FRAME_OPTIONS", default="DENY")
 
-SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
-SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
-    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
-    default=True,
-)
-SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=True)
+# Shorter HSTS than prod — easier to recover from misconfig in staging
+SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=300)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False)
+SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
 
 if env.bool("USE_SECURE_PROXY_SSL_HEADER", default=False):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
+# Keep API docs enabled in staging for QA and frontend integration
+SPECTACULAR_SETTINGS = {
+    **SPECTACULAR_SETTINGS,  # noqa: F405
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+}
