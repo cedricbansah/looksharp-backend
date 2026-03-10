@@ -38,10 +38,14 @@ Click on your service (the GitHub one), go to **Variables** tab, and add:
 # Django settings
 DJANGO_SETTINGS_MODULE=config.settings.staging
 SECRET_KEY=<generate-a-secure-key>
-ALLOWED_HOSTS=*.up.railway.app
+ALLOWED_HOSTS=*
 
 # CORS (your admin dashboard URL)
 CORS_ALLOWED_ORIGINS=https://looksharp-staging.web.app,https://your-admin.vercel.app
+# Note: no trailing slash on origins — Django CORS will reject them
+
+# Port (must match Railway Networking → Exposed Port setting)
+PORT=8080
 CSRF_TRUSTED_ORIGINS=https://looksharp-staging.web.app
 
 # Security (Railway handles SSL termination)
@@ -81,7 +85,12 @@ base64 -i firebase-service-account.json | tr -d '\n'
 python -c "import base64; print(base64.b64encode(open('firebase-service-account.json', 'rb').read()).decode())"
 ```
 
-## Step 5: Deploy
+## Step 5: Configure Networking
+
+In your service → **Settings** → **Networking**, set **Exposed Port** to `8080`.
+Railway uses this to inject the `PORT` env var and route traffic to your container.
+
+## Step 6: Deploy
 
 Railway will auto-deploy when you push to the connected branch.
 
@@ -91,7 +100,7 @@ To trigger a manual deploy:
 
 The `release` command in Procfile runs migrations automatically.
 
-## Step 6: Verify Deployment
+## Step 7: Verify Deployment
 
 1. Get your Railway URL from the **Settings** tab
 2. Test the health endpoint:

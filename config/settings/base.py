@@ -2,6 +2,7 @@ from pathlib import Path
 
 import environ
 from celery.schedules import crontab
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env = environ.Env()
@@ -98,6 +99,10 @@ REST_FRAMEWORK = {
 }
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=False)
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-request-id",
+    "x-client-request-id",
+]
 SPECTACULAR_SETTINGS = {
     "TITLE": "LookSharp Backend API",
     "DESCRIPTION": "Django REST API for LookSharp mobile and admin clients.",
