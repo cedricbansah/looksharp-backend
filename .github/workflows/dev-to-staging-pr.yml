@@ -1,0 +1,56 @@
+name: Open Dev To Staging PR
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    name: Open PR (dev -> staging)
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'dev'
+
+    steps:
+      - name: Open PR if missing
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const base = "staging";
+            const head = `${owner}:dev`;
+
+            const { data: existing } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: "open",
+              base,
+              head,
+            });
+
+            if (existing.length > 0) {
+              core.info(`Open PR already exists: #${existing[0].number}`);
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner,
+              repo,
+              title: "Promote dev to staging",
+              head: "dev",
+              base,
+              body: "Automated PR opened after CI checks passed on a push to `dev`.",
+              maintainer_can_modify: true,
+            });
+
+            core.info(`Opened PR #${pr.number}`);
