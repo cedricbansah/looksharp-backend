@@ -4,6 +4,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.clients.models import Client
 from apps.responses.models import Response
 from apps.surveys.models import Question, Survey
 from apps.users.models import User
@@ -64,6 +65,7 @@ class TestSurveyEndpoints:
 class TestAdminSurveyEndpoints:
     def test_admin_create_update_delete_survey(self, mock_firebase):
         admin = User.objects.create(id="admin-survey-1", email="admin-survey-1@b.com", is_admin=True)
+        client_obj = Client.objects.create(id="client-survey-admin-1", name="Client A")
         mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
 
         client = APIClient()
@@ -71,11 +73,18 @@ class TestAdminSurveyEndpoints:
 
         create = client.post(
             "/api/v1/admin/surveys/",
-            {"title": "Survey A", "status": "draft", "points": 10},
+            {
+                "title": "Survey A",
+                "status": "draft",
+                "points": 10,
+                "client_id": client_obj.id,
+            },
             format="json",
         )
         assert create.status_code == 201
         survey_id = create.data["id"]
+        assert create.data["client_id"] == client_obj.id
+        assert create.data["client_name"] == client_obj.name
 
         update = client.patch(
             f"/api/v1/admin/surveys/{survey_id}/",

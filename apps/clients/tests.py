@@ -130,8 +130,8 @@ class TestAdminClientEndpoints:
     def test_delete_returns_409_when_referenced_by_survey_or_offer(self, mock_firebase):
         admin = User.objects.create(id="admin-client-5", email="admin-client-5@b.com", is_admin=True)
         created = Client.objects.create(id="client-ref-1", name="Referenced")
-        Survey.objects.create(id="survey-ref-1", title="Survey Ref", client_id=created.id, status="draft")
-        Offer.objects.create(id="offer-ref-1", title="Offer Ref", client_id=created.id, status="active")
+        Survey.objects.create(id="survey-ref-1", title="Survey Ref", client=created, status="draft")
+        Offer.objects.create(id="offer-ref-1", title="Offer Ref", client=created, status="active")
         mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
 
         client_api = APIClient()

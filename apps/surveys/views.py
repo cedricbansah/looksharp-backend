@@ -30,7 +30,7 @@ class SurveyListView(generics.ListAPIView):
     serializer_class = SurveyListSerializer
 
     def get_queryset(self):
-        return Survey.objects.filter(status="active").order_by("-created_at")
+        return Survey.objects.filter(status="active").select_related("client").order_by("-created_at")
 
 
 class SurveyDetailView(generics.RetrieveAPIView):
@@ -38,14 +38,14 @@ class SurveyDetailView(generics.RetrieveAPIView):
     serializer_class = SurveyDetailSerializer
 
     def get_queryset(self):
-        return Survey.objects.filter(status="active")
+        return Survey.objects.filter(status="active").select_related("client")
 
 
 class AdminSurveyListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
-        return Survey.objects.all().order_by("-created_at")
+        return Survey.objects.all().select_related("client").order_by("-created_at")
 
     def get_serializer_class(self):
         if self.request.method == "POST":

@@ -29,8 +29,13 @@ class Survey(models.Model):
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, default="draft", choices=SURVEY_STATUS_CHOICES)
     category = models.CharField(max_length=100, blank=True)
-    client_id = models.CharField(max_length=128, blank=True)
-    client_name = models.CharField(max_length=255, blank=True)
+    client = models.ForeignKey(
+        "clients.Client",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="surveys",
+    )
     points = models.PositiveIntegerField(default=0)
     question_count = models.PositiveIntegerField(default=0)
     response_count = models.PositiveIntegerField(default=0)
