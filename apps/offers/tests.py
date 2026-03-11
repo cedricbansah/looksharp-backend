@@ -1,11 +1,15 @@
 from unittest.mock import patch
+from datetime import timedelta
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
+from freezegun import freeze_time
 from rest_framework.test import APIClient
 
 from apps.clients.models import Client
 from apps.offers.models import Offer, Redemption
+from apps.offers.tasks import _days_remaining, recompute_status
 from apps.users.models import User
 
 
@@ -216,3 +220,107 @@ class TestAdminOfferEndpoints:
         assert resp.status_code == 200
         offer.refresh_from_db()
         assert offer.poster_url == "https://cdn.example/offers/offer-upload-2/poster"
+
+
+@pytest.mark.django_db
+class TestRecomputeStatusTask:
+    @freeze_time("2026-03-01 12:00:00")
+    def test_expires_ended_offers(self):
+        now = timezone.now()
+        first = Offer.objects.create(
+            id="offer-expire-1",
+            title="Offer Expire 1",
+            status="active",
+            end_date=now - timedelta(days=1),
+            days_remaining=5,
+        )
+        second = Offer.objects.create(
+            id="offer-expire-2",
+            title="Offer Expire 2",
+            status="active",
+            end_date=now - timedelta(days=2),
+            days_remaining=8,
+        )
+
+        result = recompute_status.apply().get()
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert first.status == "inactive"
+        assert second.status == "inactive"
+        assert first.days_remaining == 0
+        assert second.days_remaining == 0
+        assert result["ended_count"] == 2
+
+    @freeze_time("2026-03-01 12:00:00")
+    def test_updates_stale_days_remaining(self):
+        now = timezone.now()
+        offer = Offer.objects.create(
+            id="offer-days-update-1",
+            title="Offer Days Update",
+            status="active",
+            end_date=now + timedelta(days=5),
+            days_remaining=0,
+        )
+
+        result = recompute_status.apply().get()
+
+        offer.refresh_from_db()
+        assert offer.days_remaining == 5
+        assert result["updated_count"] == 1
+        assert result["error_count"] == 0
+
+    @freeze_time("2026-03-01 12:00:00")
+    def test_skips_offer_with_correct_days_remaining(self):
+        now = timezone.now()
+        Offer.objects.create(
+            id="offer-days-skip-1",
+            title="Offer Days Skip",
+            status="active",
+            end_date=now + timedelta(days=3),
+            days_remaining=3,
+        )
+
+        result = recompute_status.apply().get()
+
+        assert result["updated_count"] == 0
+        assert result["error_count"] == 0
+        assert result["ended_count"] == 0
+
+    @freeze_time("2026-03-01 12:00:00")
+    def test_handles_per_offer_exception(self):
+        now = timezone.now()
+        first_end = now + timedelta(days=6)
+        second_end = now + timedelta(days=4)
+        first = Offer.objects.create(
+            id="offer-days-exc-1",
+            title="Offer Days Exc 1",
+            status="active",
+            end_date=first_end,
+            days_remaining=0,
+        )
+        second = Offer.objects.create(
+            id="offer-days-exc-2",
+            title="Offer Days Exc 2",
+            status="active",
+            end_date=second_end,
+            days_remaining=0,
+        )
+
+        def fake_days_remaining(end_date):
+            if end_date == first_end:
+                raise RuntimeError("boom")
+            return 4
+
+        with patch("apps.offers.tasks._days_remaining", side_effect=fake_days_remaining):
+            result = recompute_status.apply().get()
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert result["success"] is True
+        assert result["error_count"] == 1
+        assert second.days_remaining == 4
+        assert first.days_remaining == 0
+
+    def test_days_remaining_none_end_date(self):
+        assert _days_remaining(None) == 0
