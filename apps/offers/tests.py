@@ -4,6 +4,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
+from apps.clients.models import Client
 from apps.offers.models import Offer, Redemption
 from apps.users.models import User
 
@@ -35,12 +36,13 @@ class TestOfferEndpoints:
     def test_redeem_offer_deducts_points(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u2", "email": "b@b.com"}
         User.objects.create(id="u2", email="b@b.com", points=200)
+        client_obj = Client.objects.create(id="client-offer-1", name="Client")
         Offer.objects.create(
             id="o1",
             title="Offer",
             status="active",
             points_required=100,
-            client_name="Client",
+            client=client_obj,
             offer_code="CODE1",
         )
 
@@ -55,12 +57,13 @@ class TestOfferEndpoints:
     def test_redeem_offer_is_idempotent(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u3", "email": "c@b.com"}
         User.objects.create(id="u3", email="c@b.com", points=200)
+        client_obj = Client.objects.create(id="client-offer-2", name="Client")
         Offer.objects.create(
             id="o2",
             title="Offer",
             status="active",
             points_required=100,
-            client_name="Client",
+            client=client_obj,
             offer_code="CODE2",
         )
 
@@ -95,6 +98,11 @@ class TestOfferEndpoints:
 class TestAdminOfferEndpoints:
     def test_admin_create_update_delete_offer(self, mock_firebase):
         admin = User.objects.create(id="admin-offer-1", email="admin-offer-1@b.com", is_admin=True)
+        client_obj = Client.objects.create(
+            id="client-offer-admin-1",
+            name="Acme",
+            logo_url="https://cdn.example/clients/acme/logo",
+        )
         mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
 
         client = APIClient()
@@ -102,11 +110,19 @@ class TestAdminOfferEndpoints:
 
         create = client.post(
             "/api/v1/admin/offers/",
-            {"title": "Offer A", "status": "inactive", "points_required": 20},
+            {
+                "title": "Offer A",
+                "status": "inactive",
+                "points_required": 20,
+                "client_id": client_obj.id,
+            },
             format="json",
         )
         assert create.status_code == 201
         offer_id = create.data["id"]
+        assert create.data["client_id"] == client_obj.id
+        assert create.data["client_name"] == "Acme"
+        assert create.data["client_logo_url"] == "https://cdn.example/clients/acme/logo"
 
         update = client.patch(
             f"/api/v1/admin/offers/{offer_id}/",
@@ -124,7 +140,14 @@ class TestAdminOfferEndpoints:
     def test_admin_delete_offer_with_redemptions_returns_409(self, mock_firebase):
         admin = User.objects.create(id="admin-offer-2", email="admin-offer-2@b.com", is_admin=True)
         user = User.objects.create(id="member-offer-2", email="member-offer-2@b.com")
-        offer = Offer.objects.create(id="offer-guard-1", title="Guard Offer", status="active", points_required=10)
+        client_obj = Client.objects.create(id="client-offer-guard-1", name="Client")
+        offer = Offer.objects.create(
+            id="offer-guard-1",
+            title="Guard Offer",
+            status="active",
+            points_required=10,
+            client=client_obj,
+        )
         Redemption.objects.create(
             user_id=user.id,
             offer=offer,

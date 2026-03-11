@@ -3,6 +3,8 @@ from typing import Any
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.clients.models import Client
+
 from .models import Question, Survey
 
 
@@ -26,6 +28,9 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 
 class SurveyListSerializer(serializers.ModelSerializer):
+    client_id = serializers.CharField(source="client.id", default="")
+    client_name = serializers.CharField(source="client.name", default="")
+
     class Meta:
         model = Survey
         fields = [
@@ -61,6 +66,13 @@ class SurveyDetailSerializer(SurveyListSerializer):
 
 
 class AdminSurveyCreateSerializer(serializers.ModelSerializer):
+    client_id = serializers.PrimaryKeyRelatedField(
+        source="client",
+        queryset=Client.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+
     class Meta:
         model = Survey
         fields = [
@@ -69,7 +81,6 @@ class AdminSurveyCreateSerializer(serializers.ModelSerializer):
             "status",
             "category",
             "client_id",
-            "client_name",
             "points",
             "estimated_time",
             "end_date",
@@ -78,6 +89,13 @@ class AdminSurveyCreateSerializer(serializers.ModelSerializer):
 
 
 class AdminSurveyUpdateSerializer(serializers.ModelSerializer):
+    client_id = serializers.PrimaryKeyRelatedField(
+        source="client",
+        queryset=Client.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+
     class Meta:
         model = Survey
         fields = [
@@ -86,7 +104,6 @@ class AdminSurveyUpdateSerializer(serializers.ModelSerializer):
             "status",
             "category",
             "client_id",
-            "client_name",
             "points",
             "estimated_time",
             "end_date",

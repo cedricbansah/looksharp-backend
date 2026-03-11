@@ -21,9 +21,13 @@ class Offer(models.Model):
     category = models.CharField(max_length=100, blank=True)
     url = models.URLField(blank=True, max_length=500)
     poster_url = models.URLField(blank=True, max_length=500)
-    client_id = models.CharField(max_length=128, blank=True)
-    client_name = models.CharField(max_length=255, blank=True)
-    client_logo_url = models.URLField(blank=True, max_length=500)
+    client = models.ForeignKey(
+        "clients.Client",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="offers",
+    )
     offer_code = models.CharField(max_length=64, blank=True, db_index=True)
     points_required = models.PositiveIntegerField(default=0)
     end_date = models.DateTimeField(null=True, blank=True)

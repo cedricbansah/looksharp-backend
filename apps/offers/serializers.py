@@ -1,9 +1,15 @@
 from rest_framework import serializers
 
+from apps.clients.models import Client
+
 from .models import Offer, Redemption
 
 
 class OfferListSerializer(serializers.ModelSerializer):
+    client_id = serializers.CharField(source="client.id", default="")
+    client_name = serializers.CharField(source="client.name", default="")
+    client_logo_url = serializers.URLField(source="client.logo_url", default="")
+
     class Meta:
         model = Offer
         fields = [
@@ -51,6 +57,13 @@ class RedemptionListSerializer(serializers.ModelSerializer):
 
 
 class AdminOfferCreateSerializer(serializers.ModelSerializer):
+    client_id = serializers.PrimaryKeyRelatedField(
+        source="client",
+        queryset=Client.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+
     class Meta:
         model = Offer
         fields = [
@@ -61,8 +74,6 @@ class AdminOfferCreateSerializer(serializers.ModelSerializer):
             "url",
             "poster_url",
             "client_id",
-            "client_name",
-            "client_logo_url",
             "offer_code",
             "points_required",
             "end_date",
@@ -71,6 +82,13 @@ class AdminOfferCreateSerializer(serializers.ModelSerializer):
 
 
 class AdminOfferUpdateSerializer(serializers.ModelSerializer):
+    client_id = serializers.PrimaryKeyRelatedField(
+        source="client",
+        queryset=Client.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+
     class Meta:
         model = Offer
         fields = [
@@ -81,8 +99,6 @@ class AdminOfferUpdateSerializer(serializers.ModelSerializer):
             "url",
             "poster_url",
             "client_id",
-            "client_name",
-            "client_logo_url",
             "offer_code",
             "points_required",
             "end_date",

@@ -43,7 +43,7 @@ class OfferListView(generics.ListAPIView):
     serializer_class = OfferListSerializer
 
     def get_queryset(self):
-        return Offer.objects.filter(status="active").order_by("-created_at")
+        return Offer.objects.filter(status="active").select_related("client").order_by("-created_at")
 
 
 class RedemptionListCreateView(generics.ListCreateAPIView):
@@ -97,7 +97,7 @@ class RedemptionListCreateView(generics.ListCreateAPIView):
                     offer=offer,
                     offer_code=offer.offer_code,
                     offer_title=offer.title,
-                    client_name=offer.client_name,
+                    client_name=offer.client.name if offer.client else "",
                     points_spent=offer.points_required,
                 )
             except IntegrityError:
@@ -127,7 +127,7 @@ class AdminOfferListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
-        return Offer.objects.all().order_by("-created_at")
+        return Offer.objects.all().select_related("client").order_by("-created_at")
 
     def get_serializer_class(self):
         if self.request.method == "POST":
