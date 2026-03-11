@@ -1,3 +1,4 @@
+import uuid
 from unittest.mock import patch
 
 import pytest
@@ -122,6 +123,52 @@ class TestResponseEndpoint:
             )
         assert resp.status_code == 400
 
+    def test_get_response_detail_returns_own_response(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u2", "email": "b@b.com"}
+        User.objects.create(id="u2", email="b@b.com")
+        response = Response.objects.create(
+            survey_id="s1",
+            user_id="u2",
+            submitted_at=timezone.now(),
+            answers=[],
+            points_earned=10,
+        )
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.get(f"/api/v1/responses/{response.id}/")
+
+        assert resp.status_code == 200
+        assert str(resp.data["id"]) == str(response.id)
+        assert resp.data["user_id"] == "u2"
+
+    def test_get_response_detail_for_other_user_returns_404(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u2", "email": "b@b.com"}
+        User.objects.create(id="u2", email="b@b.com")
+        response = Response.objects.create(
+            survey_id="s1",
+            user_id="other-user",
+            submitted_at=timezone.now(),
+            answers=[],
+            points_earned=10,
+        )
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.get(f"/api/v1/responses/{response.id}/")
+
+        assert resp.status_code == 404
+
+    def test_get_response_detail_nonexistent_returns_404(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u2", "email": "b@b.com"}
+        User.objects.create(id="u2", email="b@b.com")
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        resp = client.get(f"/api/v1/responses/{uuid.uuid4()}/")
+
+        assert resp.status_code == 404
+
 
 @pytest.mark.django_db
 class TestApplySideEffects:
@@ -182,3 +229,31 @@ class TestAdminResponseEndpoint:
         assert resp.status_code == 200
         assert len(resp.data["results"]) == 1
         assert resp.data["results"][0]["survey_id"] == "s1"
+
+    def test_admin_can_get_response_detail(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "admin-1", "email": "admin@looksharp.co"}
+        User.objects.create(id="admin-1", email="admin@looksharp.co", is_admin=True)
+        response = Response.objects.create(
+            survey_id="s1",
+            user_id="u1",
+            submitted_at=timezone.now(),
+            answers=[],
+            points_earned=10,
+        )
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.get(f"/api/v1/admin/responses/{response.id}/")
+
+        assert resp.status_code == 200
+        assert str(resp.data["id"]) == str(response.id)
+
+    def test_admin_get_response_detail_nonexistent_returns_404(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "admin-1", "email": "admin@looksharp.co"}
+        User.objects.create(id="admin-1", email="admin@looksharp.co", is_admin=True)
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.get(f"/api/v1/admin/responses/{uuid.uuid4()}/")
+
+        assert resp.status_code == 404
