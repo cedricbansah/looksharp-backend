@@ -11,3 +11,6 @@ dist/
 .pytest_cache/
 docs/
 CLAUDE.md
+secrets/
+scripts/
+Makefile
