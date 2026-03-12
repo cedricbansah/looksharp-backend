@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
@@ -24,7 +25,7 @@ class TestResponseEndpoint:
     def test_post_response_returns_201(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u1", "email": "a@b.com"}
         User.objects.create(id="u1", email="a@b.com")
-        Survey.objects.create(id="s1", title="Test", points=25)
+        Survey.objects.create(id="s1", title="Test", status="active", points=25)
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION="Bearer token")
         payload = {
@@ -78,11 +79,12 @@ class TestResponseEndpoint:
     def test_post_response_ignores_spoofed_identity_fields(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u1", "email": "real@b.com"}
         User.objects.create(id="u1", email="real@b.com")
-        Survey.objects.create(id="s1", title="Test", points=25)
+        Survey.objects.create(id="s1", title="Test", status="active", points=25)
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION="Bearer token")
         payload = {
             "survey_id": "s1",
+            "survey_title": "Spoofed title",
             "submitted_at": timezone.now().isoformat(),
             "answers": [{"question_id": "q1", "answer_text": "A"}],
             "user_id": "attacker-id",
@@ -95,12 +97,13 @@ class TestResponseEndpoint:
         created = Response.objects.get()
         assert created.user_id == "u1"
         assert created.user_email == "real@b.com"
+        assert created.survey_title == "Test"
         assert created.points_earned == 25
 
     def test_duplicate_response_returns_409(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u1", "email": "a@b.com"}
         User.objects.create(id="u1", email="a@b.com")
-        Survey.objects.create(id="s1", title="Test", points=25)
+        Survey.objects.create(id="s1", title="Test", status="active", points=25)
         Response.objects.create(
             survey_id="s1",
             user_id="u1",
@@ -121,6 +124,50 @@ class TestResponseEndpoint:
                 },
                 format="json",
             )
+        assert resp.status_code == 409
+
+    def test_post_response_inactive_survey_returns_400(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u1", "email": "a@b.com"}
+        User.objects.create(id="u1", email="a@b.com")
+        Survey.objects.create(id="s-inactive", title="Test", status="draft", points=25)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        resp = client.post(
+            "/api/v1/responses/",
+            {
+                "survey_id": "s-inactive",
+                "submitted_at": timezone.now().isoformat(),
+                "answers": [{"question_id": "q1", "answer_text": "A"}],
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 400
+
+    def test_post_response_expired_survey_returns_400(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u1", "email": "a@b.com"}
+        User.objects.create(id="u1", email="a@b.com")
+        Survey.objects.create(
+            id="s-expired",
+            title="Test",
+            status="active",
+            points=25,
+            end_date=timezone.now() - timedelta(minutes=1),
+        )
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        resp = client.post(
+            "/api/v1/responses/",
+            {
+                "survey_id": "s-expired",
+                "submitted_at": timezone.now().isoformat(),
+                "answers": [{"question_id": "q1", "answer_text": "A"}],
+            },
+            format="json",
+        )
+
         assert resp.status_code == 400
 
     def test_get_response_detail_returns_own_response(self, mock_firebase):

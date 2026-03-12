@@ -2,6 +2,8 @@ import uuid
 
 from django.db import transaction
 from django.db.models import Case, F, Max, Value, When
+from django.db.models import Q
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
@@ -30,7 +32,13 @@ class SurveyListView(generics.ListAPIView):
     serializer_class = SurveyListSerializer
 
     def get_queryset(self):
-        return Survey.objects.filter(status="active").select_related("client").order_by("-created_at")
+        now = timezone.now()
+        return (
+            Survey.objects.filter(status="active")
+            .filter(Q(end_date__isnull=True) | Q(end_date__gt=now))
+            .select_related("client")
+            .order_by("-created_at")
+        )
 
 
 class SurveyDetailView(generics.RetrieveAPIView):
@@ -38,7 +46,12 @@ class SurveyDetailView(generics.RetrieveAPIView):
     serializer_class = SurveyDetailSerializer
 
     def get_queryset(self):
-        return Survey.objects.filter(status="active").select_related("client")
+        now = timezone.now()
+        return (
+            Survey.objects.filter(status="active")
+            .filter(Q(end_date__isnull=True) | Q(end_date__gt=now))
+            .select_related("client")
+        )
 
 
 class AdminSurveyListCreateView(generics.ListCreateAPIView):

@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+from unittest.mock import patch
 
 import pytest
 from rest_framework.test import APIClient
@@ -23,6 +24,16 @@ def post_webhook(payload_dict, secret=TEST_SECRET):
         data=raw,
         content_type="application/json",
         HTTP_X_PAYSTACK_SIGNATURE=sign(raw, secret),
+    )
+
+
+def post_raw_webhook(raw_payload, secret=TEST_SECRET):
+    client = APIClient()
+    return client.post(
+        "/api/v1/webhooks/paystack/",
+        data=raw_payload,
+        content_type="application/json",
+        HTTP_X_PAYSTACK_SIGNATURE=sign(raw_payload, secret),
     )
 
 
@@ -169,3 +180,182 @@ class TestPaystackWebhook:
         wd.refresh_from_db()
         assert wd.status == "processing"
         assert wd.transfer_code == "TRF_1"
+
+    def test_invalid_json_returns_400(self):
+        resp = post_raw_webhook(b"{bad")
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Invalid JSON"
+
+    def test_missing_identifiers_returns_400(self):
+        resp = post_webhook({"event": "transfer.success", "data": {}})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Missing transfer identifiers"
+
+    def test_non_dict_data_is_handled(self):
+        user = User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        wd = self._make_withdrawal(status="processing", transfer_code="TRF_1")
+        resp = post_webhook({"event": "transfer.success", "data": "string", "transfer_code": "TRF_1"})
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        user.refresh_from_db()
+        assert wd.status == "completed"
+        assert user.points == 400
+
+    def test_approval_required_uses_transfers_list(self):
+        User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        wd = self._make_withdrawal()
+        resp = post_webhook(
+            {
+                "event": "transferrequest.approval-required",
+                "data": {"transfers": [{"transfer_code": "TRF_1", "reference": "REF_1"}]},
+            }
+        )
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        assert wd.status == "processing"
+        assert wd.transfer_code == "TRF_1"
+
+    def test_withdrawal_not_found_returns_400(self):
+        resp = post_webhook({"reference": "MISSING_REF"})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Transfer not found"
+
+    def test_unhandled_event_returns_200(self):
+        wd = self._make_withdrawal()
+        resp = post_webhook({"event": "charge.success", "reference": "REF_1"})
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        assert wd.status == "pending"
+
+    def test_exception_in_transition_returns_400(self):
+        with patch("apps.webhooks.views.transaction.atomic", side_effect=RuntimeError("boom")):
+            resp = post_webhook({"reference": "REF_1"})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Internal error"
+
+    def test_approve_failed_withdrawal_is_replay(self):
+        wd = self._make_withdrawal(status="failed")
+        resp = post_webhook({"reference": "REF_1"})
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        assert wd.status == "failed"
+
+    def test_approve_processing_assigns_missing_transfer_code(self):
+        wd = self._make_withdrawal(status="processing")
+        resp = post_webhook({"transfer_code": "TRF_NEW", "reference": "REF_1"})
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        assert wd.status == "processing"
+        assert wd.transfer_code == "TRF_NEW"
+
+    def test_approve_invalid_status_returns_400(self):
+        wd = self._make_withdrawal(status="cancelled")
+        resp = post_webhook({"reference": "REF_1"})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Invalid withdrawal status: cancelled"
+        wd.refresh_from_db()
+        assert wd.status == "cancelled"
+
+    def test_approve_user_not_found_returns_400(self):
+        wd = self._make_withdrawal(user_id="ghost")
+        resp = post_webhook({"reference": "REF_1"})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "User not found"
+        wd.refresh_from_db()
+        assert wd.status == "failed"
+        assert wd.failure_reason == "User not found"
+
+    def test_approve_multiple_pending_returns_400(self):
+        User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        wd = self._make_withdrawal()
+        self._make_withdrawal(transfer_reference="REF_2")
+        resp = post_webhook({"reference": "REF_1"})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Multiple pending withdrawals"
+        wd.refresh_from_db()
+        assert wd.status == "failed"
+        assert wd.failure_reason == "Multiple pending withdrawals"
+
+    def test_complete_failed_withdrawal_is_replay(self):
+        wd = self._make_withdrawal(status="failed", transfer_code="TRF_1")
+        resp = post_webhook(
+            {
+                "event": "transfer.success",
+                "data": {"transfer_code": "TRF_1", "reference": "REF_1"},
+            }
+        )
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        assert wd.status == "failed"
+
+    def test_complete_invalid_status_returns_400(self):
+        wd = self._make_withdrawal(status="cancelled")
+        resp = post_webhook({"event": "transfer.success", "data": {"reference": "REF_1"}})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Invalid withdrawal status: cancelled"
+        wd.refresh_from_db()
+        assert wd.status == "cancelled"
+
+    def test_complete_transfer_code_mismatch_returns_400(self):
+        User.objects.create(id="u1", email="a@b.com", is_verified=True, points=500)
+        wd = self._make_withdrawal(status="processing", transfer_code="TRF_1")
+        resp = post_webhook(
+            {
+                "event": "transfer.success",
+                "data": {"transfer_code": "TRF_2", "reference": "REF_1"},
+            }
+        )
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Transfer code mismatch for withdrawal"
+        wd.refresh_from_db()
+        assert wd.status == "processing"
+        assert wd.transfer_code == "TRF_1"
+
+    def test_complete_user_not_found_returns_400(self):
+        wd = self._make_withdrawal(user_id="ghost")
+        resp = post_webhook({"event": "transfer.success", "data": {"reference": "REF_1"}})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "User not found"
+        wd.refresh_from_db()
+        assert wd.status == "failed"
+        assert wd.failure_reason == "User not found"
+
+    def test_complete_user_not_verified_returns_400(self):
+        User.objects.create(id="u1", email="a@b.com", is_verified=False, points=500)
+        wd = self._make_withdrawal()
+        resp = post_webhook({"event": "transfer.success", "data": {"reference": "REF_1"}})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "User not verified"
+        wd.refresh_from_db()
+        assert wd.status == "failed"
+        assert wd.failure_reason == "User not verified"
+
+    def test_complete_insufficient_points_returns_400(self):
+        User.objects.create(id="u1", email="a@b.com", is_verified=True, points=10)
+        wd = self._make_withdrawal(points_converted=500)
+        resp = post_webhook({"event": "transfer.success", "data": {"reference": "REF_1"}})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Insufficient points"
+        wd.refresh_from_db()
+        assert wd.status == "failed"
+        assert wd.failure_reason == "Insufficient points"
+
+    def test_fail_completed_withdrawal_is_replay(self):
+        wd = self._make_withdrawal(status="completed", transfer_code="TRF_1")
+        resp = post_webhook(
+            {
+                "event": "transfer.reversed",
+                "data": {"transfer_code": "TRF_1", "reference": "REF_1"},
+            }
+        )
+        assert resp.status_code == 200
+        wd.refresh_from_db()
+        assert wd.status == "completed"
+
+    def test_fail_invalid_status_returns_400(self):
+        wd = self._make_withdrawal(status="cancelled")
+        resp = post_webhook({"event": "transfer.failed", "data": {"reference": "REF_1"}})
+        assert resp.status_code == 400
+        assert resp.data["error"] == "Invalid withdrawal status: cancelled"
+        wd.refresh_from_db()
+        assert wd.status == "cancelled"

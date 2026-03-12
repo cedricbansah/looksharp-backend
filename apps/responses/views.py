@@ -29,6 +29,14 @@ class ResponseListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        survey_id = serializer.validated_data["survey_id"]
+
+        if Response.objects.filter(user_id=request.user.id, survey_id=survey_id).exists():
+            return DRFResponse(
+                {"error": "Response already submitted for this survey."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         try:
             response_obj = serializer.save(
                 user_id=request.user.id,

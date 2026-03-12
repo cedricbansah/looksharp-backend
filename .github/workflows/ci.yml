@@ -123,6 +123,16 @@ jobs:
             apps/withdrawals/tests.py \
             apps/webhooks/views.py \
             apps/webhooks/tests.py \
+            apps/clients/models.py \
+            apps/clients/serializers.py \
+            apps/clients/views.py \
+            apps/clients/admin_urls.py \
+            apps/clients/tests.py \
+            apps/core/authentication.py \
+            apps/core/permissions.py \
+            apps/core/views.py \
+            apps/core/urls.py \
+            apps/core/tests.py \
             apps/paystack/serializers.py \
             apps/paystack/views.py \
             apps/paystack/tests.py \
@@ -133,6 +143,11 @@ jobs:
       - name: Run tests
         run: |
           pytest -q \
+            --cov=apps \
+            --cov=services.paystack \
+            --cov-report=term-missing \
+            --cov-fail-under=90 \
+            --cov-config=.coveragerc \
             apps/users/tests.py \
             apps/surveys/tests.py \
             apps/offers/tests.py \
@@ -141,4 +156,6 @@ jobs:
             apps/responses/tests.py \
             apps/withdrawals/tests.py \
             apps/webhooks/tests.py \
-            apps/paystack/tests.py
+            apps/paystack/tests.py \
+            apps/clients/tests.py \
+            apps/core/tests.py

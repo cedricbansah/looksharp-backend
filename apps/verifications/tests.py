@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+import requests as http_requests
 from rest_framework.test import APIClient
 
 from apps.users.models import User
@@ -161,3 +162,138 @@ class TestVerificationEndpoints:
             format="json",
         )
         assert approve_resp.status_code == 403
+
+    def test_admin_can_list_all_verifications(self, mock_firebase):
+        admin = User.objects.create(id="admin-list", email="admin-list@b.com", is_admin=True)
+        Verification.objects.create(
+            user_id="u10",
+            full_name="User One",
+            mobile_number="0240000010",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-1010",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="pending",
+        )
+        Verification.objects.create(
+            user_id="u11",
+            full_name="User Two",
+            mobile_number="0240000011",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-1111",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="approved",
+        )
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        response = client.get("/api/v1/admin/verifications/")
+
+        assert response.status_code == 200
+        assert response.data["count"] == 2
+
+    def test_approve_returns_404_for_missing_verification(self, mock_firebase):
+        admin = User.objects.create(id="admin-miss-approve", email="admin-miss-approve@b.com", is_admin=True)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        response = client.post(
+            "/api/v1/admin/verifications/00000000-0000-0000-0000-000000000000/approve/",
+            {},
+            format="json",
+        )
+
+        assert response.status_code == 404
+
+    def test_reject_returns_404_for_missing_verification(self, mock_firebase):
+        admin = User.objects.create(id="admin-miss-reject", email="admin-miss-reject@b.com", is_admin=True)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        response = client.post(
+            "/api/v1/admin/verifications/00000000-0000-0000-0000-000000000000/reject/",
+            {"rejection_reason": "Not found"},
+            format="json",
+        )
+
+        assert response.status_code == 404
+
+    def test_create_recipient_returns_404_for_missing_verification(self, mock_firebase):
+        admin = User.objects.create(id="admin-miss-recipient", email="admin-miss-recipient@b.com", is_admin=True)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        response = client.post(
+            "/api/v1/admin/verifications/00000000-0000-0000-0000-000000000000/create-recipient/",
+            {},
+            format="json",
+        )
+
+        assert response.status_code == 404
+
+    def test_create_recipient_returns_502_on_paystack_http_error(self, mock_firebase):
+        admin = User.objects.create(id="admin-http-err", email="admin-http-err@b.com", is_admin=True)
+        verification = Verification.objects.create(
+            user_id="u12",
+            full_name="Target User",
+            mobile_number="0240000012",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-1212",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="approved",
+        )
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        with patch("apps.verifications.views.paystack_service.create_transfer_recipient") as create_recipient:
+            create_recipient.side_effect = http_requests.HTTPError("paystack error")
+            response = client.post(
+                f"/api/v1/admin/verifications/{verification.id}/create-recipient/",
+                {},
+                format="json",
+            )
+
+        assert response.status_code == 502
+
+    def test_create_recipient_returns_502_when_recipient_code_missing(self, mock_firebase):
+        admin = User.objects.create(id="admin-missing-code", email="admin-missing-code@b.com", is_admin=True)
+        verification = Verification.objects.create(
+            user_id="u13",
+            full_name="Target User",
+            mobile_number="0240000013",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-1313",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="approved",
+        )
+
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        with patch("apps.verifications.views.paystack_service.create_transfer_recipient") as create_recipient:
+            create_recipient.return_value = {"status": True, "data": {}}
+            response = client.post(
+                f"/api/v1/admin/verifications/{verification.id}/create-recipient/",
+                {},
+                format="json",
+            )
+
+        assert response.status_code == 502
