@@ -1,7 +1,9 @@
 from decimal import Decimal
 
 from celery import shared_task
+from django.db.models import Q
 from django.db.models import Sum
+from django.utils import timezone
 
 from apps.offers.models import Offer
 from apps.responses.models import Response
@@ -23,7 +25,10 @@ def _counter() -> DashboardCounter:
 
 @shared_task(queue="default")
 def recompute_active_surveys() -> int:
-    value = Survey.objects.filter(status="active").count()
+    now = timezone.now()
+    value = Survey.objects.filter(status="active").filter(
+        Q(end_date__isnull=True) | Q(end_date__gt=now)
+    ).count()
     counter = _counter()
     counter.active_surveys = value
     counter.save(update_fields=["active_surveys", "updated_at"])
@@ -32,7 +37,10 @@ def recompute_active_surveys() -> int:
 
 @shared_task(queue="default")
 def recompute_active_offers() -> int:
-    value = Offer.objects.filter(status="active").count()
+    now = timezone.now()
+    value = Offer.objects.filter(status="active").filter(
+        Q(end_date__isnull=True) | Q(end_date__gt=now)
+    ).count()
     counter = _counter()
     counter.active_offers = value
     counter.save(update_fields=["active_offers", "updated_at"])
