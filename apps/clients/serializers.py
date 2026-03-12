@@ -66,6 +66,12 @@ class ClientUpdateSerializer(serializers.ModelSerializer):
 
     def validate_client_code(self, value):
         value = _normalized_client_code(value)
-        if self.instance and value != self.instance.client_code:
+        if not self.instance:
+            return value
+
+        current_code = _normalized_client_code(self.instance.client_code)
+        if current_code and value != current_code:
             raise serializers.ValidationError("client_code is immutable once set.")
+        if value and Client.objects.exclude(id=self.instance.id).filter(client_code=value).exists():
+            raise serializers.ValidationError("A client with this client_code already exists.")
         return value

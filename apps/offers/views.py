@@ -1,7 +1,8 @@
 import logging
 
 from django.db import IntegrityError, transaction
-from django.db.models import F
+from django.db.models import Q
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import generics, serializers, status
@@ -43,7 +44,13 @@ class OfferListView(generics.ListAPIView):
     serializer_class = OfferListSerializer
 
     def get_queryset(self):
-        return Offer.objects.filter(status="active").order_by("-created_at")
+        now = timezone.now()
+        return (
+            Offer.objects.filter(status="active")
+            .filter(Q(end_date__isnull=True) | Q(end_date__gt=now))
+            .select_related("client")
+            .order_by("-created_at")
+        )
 
 
 class RedemptionListCreateView(generics.ListCreateAPIView):
@@ -64,10 +71,16 @@ class RedemptionListCreateView(generics.ListCreateAPIView):
 
         with transaction.atomic():
             user = User.objects.select_for_update().get(id=request.user.id)
+            now = timezone.now()
             try:
-                offer = Offer.objects.select_for_update().get(
-                    id=offer_id,
-                    status="active",
+                offer = (
+                    Offer.objects.select_for_update()
+                    .filter(
+                        id=offer_id,
+                        status="active",
+                    )
+                    .filter(Q(end_date__isnull=True) | Q(end_date__gt=now))
+                    .get()
                 )
             except Offer.DoesNotExist:
                 return Response(
@@ -85,20 +98,13 @@ class RedemptionListCreateView(generics.ListCreateAPIView):
                     status=status.HTTP_200_OK,
                 )
 
-            if offer.points_required > user.points:
-                return Response(
-                    {"error": "Insufficient points to redeem this offer."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
             try:
                 redemption = Redemption.objects.create(
                     user_id=user.id,
                     offer=offer,
                     offer_code=offer.offer_code,
                     offer_title=offer.title,
-                    client_name=offer.client_name,
-                    points_spent=offer.points_required,
+                    client_name=offer.client.name if offer.client else "",
                 )
             except IntegrityError:
                 # Idempotency on (user_id, offer_id): return existing redemption.
@@ -106,15 +112,13 @@ class RedemptionListCreateView(generics.ListCreateAPIView):
                 return Response(RedemptionListSerializer(redemption).data, status=status.HTTP_200_OK)
 
             User.objects.filter(id=user.id).update(
-                points=F("points") - offer.points_required,
                 offers_claimed=user.offers_claimed + [offer.id],
             )
 
             logger.info(
-                "Offer redeemed: user=%s offer=%s points=%s",
+                "Offer redeemed: user=%s offer=%s",
                 user.id,
                 offer.id,
-                offer.points_required,
             )
 
         return Response(
@@ -127,7 +131,7 @@ class AdminOfferListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
-        return Offer.objects.all().order_by("-created_at")
+        return Offer.objects.all().select_related("client").order_by("-created_at")
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -137,7 +141,7 @@ class AdminOfferListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        offer = Offer.objects.create(**serializer.validated_data)
+        offer = serializer.save()
         return Response(OfferListSerializer(offer).data, status=status.HTTP_201_CREATED)
 
 

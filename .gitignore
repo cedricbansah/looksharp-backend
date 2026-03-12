@@ -9,5 +9,22 @@ firebase-service-account.json
 dist/
 *.egg-info/
 .pytest_cache/
-docs/
-CLAUDE.md
+# docs/ — ignore old plans/reports, track current reference docs
+docs/AUDIT_COUNTER_REPORT.md
+docs/AUDIT_REPORT.md
+docs/BACKEND_CONTRACT_V1.md
+docs/CICD_PIPELINE.md
+docs/DJANGO_SCAFFOLD_PLAN.md
+docs/FRONTEND_FK_REFACTOR_NOTE.md
+docs/FUNCTION_MIGRATION_MATRIX.md
+docs/INTEGRATION_GUIDE.md
+docs/PHASE_1_PLAN.md
+docs/PHASE_2_PLAN.md
+docs/PHASE_3_PLAN.md
+docs/RESPONSE_DETAIL_ENDPOINTS_PLAN.md
+docs/RUNTIME_ARCHITECTURE_V1.md
+docs/buildout.md
+docs/refactor-fk
+secrets/
+scripts/
+Makefile

@@ -9,8 +9,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.permissions import IsAdmin
-from apps.offers.models import Offer
-from apps.surveys.models import Survey
 from services.r2 import upload_file
 
 from .models import Client
@@ -87,8 +85,8 @@ class AdminClientUpdateDeleteView(APIView):
             if not client:
                 return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            linked_survey = Survey.objects.filter(client_id=client.id).exists()
-            linked_offer = Offer.objects.filter(client_id=client.id).exists()
+            linked_survey = client.surveys.exists()
+            linked_offer = client.offers.exists()
             if linked_survey or linked_offer:
                 return Response(
                     {"error": "Cannot delete client referenced by surveys or offers."},
