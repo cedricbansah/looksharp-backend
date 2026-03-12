@@ -1,7 +1,6 @@
 import base64
 import json
 import os
-import tempfile
 
 import firebase_admin
 from django.conf import settings
