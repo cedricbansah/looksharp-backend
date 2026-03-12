@@ -1,0 +1,3074 @@
+openapi: 3.0.3
+info:
+  title: LookSharp Backend API
+  version: 1.0.0
+  description: Django REST API for LookSharp mobile and admin clients.
+paths:
+  /api/v1/admin/clients/:
+    get:
+      operationId: v1_admin_clients_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedClientList'
+          description: ''
+    post:
+      operationId: v1_admin_clients_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ClientCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ClientCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientCreate'
+          description: ''
+  /api/v1/admin/clients/{client_id}/:
+    patch:
+      operationId: v1_admin_clients_partial_update
+      description: Update an existing client.
+      parameters:
+      - in: path
+        name: client_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedClientUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedClientUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedClientUpdate'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: v1_admin_clients_destroy
+      description: Delete a client if it is not referenced by surveys or offers.
+      parameters:
+      - in: path
+        name: client_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/clients/{client_id}/upload-logo/:
+    post:
+      operationId: v1_admin_clients_upload_logo_create
+      description: Upload and attach a client logo image (multipart/form-data).
+      parameters:
+      - in: path
+        name: client_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminClientLogoUploadRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminClientLogoUploadRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminClientLogoUploadRequest'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/counters/rebuild/:
+    post:
+      operationId: v1_admin_counters_rebuild_create
+      description: Dispatch asynchronous counter recompute tasks.
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/dashboard/:
+    get:
+      operationId: v1_admin_dashboard_retrieve
+      description: Fetch admin dashboard counters.
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardCounter'
+          description: ''
+  /api/v1/admin/offers/:
+    get:
+      operationId: v1_admin_offers_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOfferListList'
+          description: ''
+    post:
+      operationId: v1_admin_offers_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminOfferCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminOfferCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminOfferCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOfferCreate'
+          description: ''
+  /api/v1/admin/offers/{offer_id}/:
+    patch:
+      operationId: v1_admin_offers_partial_update
+      description: Update an existing offer.
+      parameters:
+      - in: path
+        name: offer_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminOfferUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminOfferUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminOfferUpdate'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: v1_admin_offers_destroy
+      description: Delete an offer if it has no redemptions.
+      parameters:
+      - in: path
+        name: offer_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/offers/{offer_id}/upload-poster/:
+    post:
+      operationId: v1_admin_offers_upload_poster_create
+      description: Upload and attach an offer poster image (multipart/form-data).
+      parameters:
+      - in: path
+        name: offer_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminOfferPosterUploadRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminOfferPosterUploadRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminOfferPosterUploadRequest'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/responses/:
+    get:
+      operationId: v1_admin_responses_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponseListList'
+          description: ''
+  /api/v1/admin/responses/{id}/:
+    get:
+      operationId: v1_admin_responses_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseList'
+          description: ''
+  /api/v1/admin/surveys/:
+    get:
+      operationId: v1_admin_surveys_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSurveyListList'
+          description: ''
+    post:
+      operationId: v1_admin_surveys_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminSurveyCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminSurveyCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminSurveyCreate'
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSurveyCreate'
+          description: ''
+  /api/v1/admin/surveys/{survey_id}/:
+    patch:
+      operationId: v1_admin_surveys_partial_update
+      description: Update an existing survey.
+      parameters:
+      - in: path
+        name: survey_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminSurveyUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminSurveyUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminSurveyUpdate'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurveyList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: v1_admin_surveys_destroy
+      description: Delete a survey if it has no existing responses.
+      parameters:
+      - in: path
+        name: survey_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/surveys/{survey_id}/questions/:
+    get:
+      operationId: v1_admin_surveys_questions_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: path
+        name: survey_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedQuestionList'
+          description: ''
+    post:
+      operationId: v1_admin_surveys_questions_create
+      parameters:
+      - in: path
+        name: survey_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminQuestionCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminQuestionCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminQuestionCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuestionCreate'
+          description: ''
+  /api/v1/admin/surveys/{survey_id}/questions/{question_id}/:
+    patch:
+      operationId: v1_admin_surveys_questions_partial_update
+      description: Update a question in a survey.
+      parameters:
+      - in: path
+        name: question_id
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: survey_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminQuestionUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminQuestionUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminQuestionUpdate'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: v1_admin_surveys_questions_destroy
+      description: Delete a question from a survey.
+      parameters:
+      - in: path
+        name: question_id
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: survey_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/surveys/{survey_id}/questions/reorder/:
+    post:
+      operationId: v1_admin_surveys_questions_reorder_create
+      description: Swap order of two questions in a survey.
+      parameters:
+      - in: path
+        name: survey_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionReorder'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuestionReorder'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuestionReorder'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/users/:
+    get:
+      operationId: v1_admin_users_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminUserList'
+          description: ''
+  /api/v1/admin/users/{user_id}/grant-admin/:
+    post:
+      operationId: v1_admin_users_grant_admin_create
+      description: Grant admin privileges to the target user.
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/verifications/:
+    get:
+      operationId: v1_admin_verifications_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVerificationListList'
+          description: ''
+  /api/v1/admin/verifications/{verification_id}/approve/:
+    post:
+      operationId: v1_admin_verifications_approve_create
+      description: Approve a verification and mark user as verified.
+      parameters:
+      - in: path
+        name: verification_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationList'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/verifications/{verification_id}/create-recipient/:
+    post:
+      operationId: v1_admin_verifications_create_recipient_create
+      description: Create a Paystack transfer recipient from verification data.
+      parameters:
+      - in: path
+        name: verification_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/verifications/{verification_id}/reject/:
+    post:
+      operationId: v1_admin_verifications_reject_create
+      description: Reject a verification with a reason and unverify the user.
+      parameters:
+      - in: path
+        name: verification_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationReject'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerificationReject'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerificationReject'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationList'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/withdrawals/:
+    get:
+      operationId: v1_admin_withdrawals_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWithdrawalListList'
+          description: ''
+  /api/v1/admin/withdrawals/{withdrawal_id}/:
+    patch:
+      operationId: v1_admin_withdrawals_partial_update
+      description: Update withdrawal status to completed or failed.
+      parameters:
+      - in: path
+        name: withdrawal_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminWithdrawalUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminWithdrawalUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminWithdrawalUpdate'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/offers/:
+    get:
+      operationId: v1_offers_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOfferListList'
+          description: ''
+  /api/v1/paystack/banks/:
+    get:
+      operationId: v1_paystack_banks_retrieve
+      description: List banks/telcos from Paystack.
+      parameters:
+      - in: query
+        name: currency
+        schema:
+          type: string
+          default: GHS
+          minLength: 1
+      - in: query
+        name: type
+        schema:
+          type: string
+          default: mobile_money
+          minLength: 1
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/paystack/transfer-recipients/:
+    post:
+      operationId: v1_paystack_transfer_recipients_create
+      description: Create a Paystack transfer recipient.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRecipientCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TransferRecipientCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TransferRecipientCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/paystack/transfers/:
+    post:
+      operationId: v1_paystack_transfers_create
+      description: Initiate a Paystack transfer.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TransferCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TransferCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/paystack/transfers/{transfer_code}/finalize/:
+    post:
+      operationId: v1_paystack_transfers_finalize_create
+      description: Finalize a Paystack transfer using a transfer code.
+      parameters:
+      - in: path
+        name: transfer_code
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/redemptions/:
+    get:
+      operationId: v1_redemptions_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRedemptionListList'
+          description: ''
+    post:
+      operationId: v1_redemptions_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedemptionCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RedemptionCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RedemptionCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedemptionCreate'
+          description: ''
+  /api/v1/responses/:
+    get:
+      operationId: v1_responses_list
+      description: |-
+        POST /api/v1/responses/  - submit a survey response
+        GET  /api/v1/responses/  - list the authenticated user's responses
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponseListList'
+          description: ''
+    post:
+      operationId: v1_responses_create
+      description: |-
+        POST /api/v1/responses/  - submit a survey response
+        GET  /api/v1/responses/  - list the authenticated user's responses
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponseCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResponseCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResponseCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseCreate'
+          description: ''
+  /api/v1/responses/{id}/:
+    get:
+      operationId: v1_responses_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseList'
+          description: ''
+  /api/v1/surveys/:
+    get:
+      operationId: v1_surveys_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSurveyListList'
+          description: ''
+  /api/v1/surveys/{id}/:
+    get:
+      operationId: v1_surveys_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurveyDetail'
+          description: ''
+  /api/v1/users/me/:
+    get:
+      operationId: v1_users_me_retrieve
+      description: |-
+        GET  /api/v1/users/me/  - return authenticated user's profile
+        PATCH /api/v1/users/me/ - update client-writable fields only
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: v1_users_me_partial_update
+      description: |-
+        GET  /api/v1/users/me/  - return authenticated user's profile
+        PATCH /api/v1/users/me/ - update client-writable fields only
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserUpdate'
+          description: ''
+  /api/v1/users/me/welcome-bonus/claim/:
+    post:
+      operationId: v1_users_me_welcome_bonus_claim_create
+      description: Claim one-time welcome bonus for the authenticated user.
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/verifications/:
+    get:
+      operationId: v1_verifications_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVerificationListList'
+          description: ''
+    post:
+      operationId: v1_verifications_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerificationCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerificationCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationCreate'
+          description: ''
+  /api/v1/webhooks/paystack/:
+    post:
+      operationId: v1_webhooks_paystack_create
+      description: Receive Paystack webhook callbacks and transition withdrawal states.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/withdrawals/:
+    get:
+      operationId: v1_withdrawals_list
+      description: |-
+        POST /api/v1/withdrawals/  - create a pending withdrawal (user must be verified)
+        GET  /api/v1/withdrawals/  - list the authenticated user's withdrawals
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWithdrawalListList'
+          description: ''
+    post:
+      operationId: v1_withdrawals_create
+      description: |-
+        POST /api/v1/withdrawals/  - create a pending withdrawal (user must be verified)
+        GET  /api/v1/withdrawals/  - list the authenticated user's withdrawals
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawalCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WithdrawalCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WithdrawalCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalCreate'
+          description: ''
+components:
+  schemas:
+    AdminClientLogoUploadRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+      required:
+      - file
+    AdminOfferCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          $ref: '#/components/schemas/OfferStatusEnum'
+        category:
+          type: string
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+          maxLength: 500
+        poster_url:
+          type: string
+          format: uri
+          maxLength: 500
+        client_id:
+          type: string
+          nullable: true
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+        is_featured:
+          type: boolean
+      required:
+      - title
+    AdminOfferPosterUploadRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+      required:
+      - file
+    AdminQuestionCreate:
+      type: object
+      properties:
+        question_text:
+          type: string
+          maxLength: 500
+        question_subtext:
+          type: string
+          maxLength: 200
+        question_type:
+          $ref: '#/components/schemas/QuestionTypeEnum'
+        choices: {}
+        scale_lower_limit:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        scale_upper_limit:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+      required:
+      - question_text
+    AdminSurveyCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/SurveyStatusEnum'
+        category:
+          type: string
+          maxLength: 100
+        client_id:
+          type: string
+          nullable: true
+        points:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        estimated_time:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+        created_by:
+          type: string
+          maxLength: 128
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        phone:
+          type: string
+          readOnly: true
+        is_verified:
+          type: boolean
+          readOnly: true
+        is_admin:
+          type: boolean
+          readOnly: true
+        points:
+          type: integer
+          readOnly: true
+        recipient_code:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - first_name
+      - id
+      - is_admin
+      - is_verified
+      - last_name
+      - phone
+      - points
+      - recipient_code
+      - updated_at
+    AdminWithdrawalUpdateStatusEnum:
+      enum:
+      - failed
+      - completed
+      type: string
+      description: |-
+        * `failed` - failed
+        * `completed` - completed
+    Answer:
+      type: object
+      properties:
+        question_id:
+          type: string
+        question_text:
+          type: string
+          default: ''
+        position_index:
+          type: integer
+          default: 0
+        answer_text:
+          type: string
+          default: ''
+      required:
+      - question_id
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        phone:
+          type: string
+          readOnly: true
+        address:
+          type: string
+          readOnly: true
+        website_url:
+          type: string
+          format: uri
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        client_code:
+          type: string
+          readOnly: true
+          nullable: true
+        logo_url:
+          type: string
+          format: uri
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - address
+      - client_code
+      - created_at
+      - description
+      - email
+      - id
+      - logo_url
+      - name
+      - phone
+      - updated_at
+      - website_url
+    ClientCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          maxLength: 32
+        address:
+          type: string
+          maxLength: 500
+        website_url:
+          type: string
+          format: uri
+          maxLength: 500
+        description:
+          type: string
+        client_code:
+          type: string
+          nullable: true
+          maxLength: 64
+        logo_url:
+          type: string
+          format: uri
+          maxLength: 500
+      required:
+      - name
+    DashboardCounter:
+      type: object
+      properties:
+        active_surveys:
+          type: integer
+          readOnly: true
+        total_responses:
+          type: integer
+          readOnly: true
+        active_offers:
+          type: integer
+          readOnly: true
+        total_users:
+          type: integer
+          readOnly: true
+        verified_users:
+          type: integer
+          readOnly: true
+        total_points_issued:
+          type: integer
+          readOnly: true
+        total_paid_out:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        pending_verifications:
+          type: integer
+          readOnly: true
+        pending_withdrawals:
+          type: integer
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - active_offers
+      - active_surveys
+      - pending_verifications
+      - pending_withdrawals
+      - total_paid_out
+      - total_points_issued
+      - total_responses
+      - total_users
+      - updated_at
+      - verified_users
+    IdTypeEnum:
+      enum:
+      - ghana_card
+      - passport
+      - voter_id
+      - drivers_license
+      type: string
+      description: |-
+        * `ghana_card` - Ghana Card
+        * `passport` - Passport
+        * `voter_id` - Voter ID
+        * `drivers_license` - Drivers License
+    NetworkProviderEnum:
+      enum:
+      - MTN
+      - Telecel
+      - ATMoney
+      type: string
+      description: |-
+        * `MTN` - MTN
+        * `Telecel` - Telecel
+        * `ATMoney` - ATMoney
+    OfferList:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OfferStatusEnum'
+          readOnly: true
+        category:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        poster_url:
+          type: string
+          format: uri
+          readOnly: true
+        client_id:
+          type: string
+          default: ''
+        client_name:
+          type: string
+          default: ''
+        client_logo_url:
+          type: string
+          format: uri
+          default: ''
+        offer_code:
+          type: string
+          readOnly: true
+        end_date:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        days_remaining:
+          type: integer
+          readOnly: true
+        is_featured:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - category
+      - created_at
+      - days_remaining
+      - description
+      - end_date
+      - id
+      - is_featured
+      - offer_code
+      - poster_url
+      - status
+      - title
+      - updated_at
+      - url
+    OfferStatusEnum:
+      enum:
+      - active
+      - inactive
+      type: string
+      description: |-
+        * `active` - Active
+        * `inactive` - Inactive
+    PaginatedAdminUserList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUser'
+    PaginatedClientList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Client'
+    PaginatedOfferListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfferList'
+    PaginatedQuestionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+    PaginatedRedemptionListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedemptionList'
+    PaginatedResponseListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResponseList'
+    PaginatedSurveyListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurveyList'
+    PaginatedVerificationListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerificationList'
+    PaginatedWithdrawalListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WithdrawalList'
+    PatchedAdminOfferUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          $ref: '#/components/schemas/OfferStatusEnum'
+        category:
+          type: string
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+          maxLength: 500
+        poster_url:
+          type: string
+          format: uri
+          maxLength: 500
+        client_id:
+          type: string
+          nullable: true
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+        is_featured:
+          type: boolean
+    PatchedAdminQuestionUpdate:
+      type: object
+      properties:
+        question_text:
+          type: string
+          maxLength: 500
+        question_subtext:
+          type: string
+          maxLength: 200
+        question_type:
+          $ref: '#/components/schemas/QuestionTypeEnum'
+        choices: {}
+        scale_lower_limit:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        scale_upper_limit:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+    PatchedAdminSurveyUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/SurveyStatusEnum'
+        category:
+          type: string
+          maxLength: 100
+        client_id:
+          type: string
+          nullable: true
+        points:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        estimated_time:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+        created_by:
+          type: string
+          maxLength: 128
+    PatchedAdminWithdrawalUpdate:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/AdminWithdrawalUpdateStatusEnum'
+        failure_reason:
+          type: string
+    PatchedClientUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          maxLength: 32
+        address:
+          type: string
+          maxLength: 500
+        website_url:
+          type: string
+          format: uri
+          maxLength: 500
+        description:
+          type: string
+        client_code:
+          type: string
+          nullable: true
+          maxLength: 64
+        logo_url:
+          type: string
+          format: uri
+          maxLength: 500
+    PatchedUserUpdate:
+      type: object
+      description: PATCH /users/me/ - only client-writable fields accepted.
+      properties:
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        phone:
+          type: string
+          maxLength: 20
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          maxLength: 10
+        country:
+          type: string
+          maxLength: 100
+        profile_photo_url:
+          type: string
+          format: uri
+          maxLength: 500
+    Question:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        survey:
+          type: string
+          readOnly: true
+        question_text:
+          type: string
+          readOnly: true
+        question_subtext:
+          type: string
+          readOnly: true
+        question_type:
+          allOf:
+          - $ref: '#/components/schemas/QuestionTypeEnum'
+          readOnly: true
+        position_index:
+          type: integer
+          readOnly: true
+        choices:
+          readOnly: true
+        scale_lower_limit:
+          type: integer
+          readOnly: true
+          nullable: true
+        scale_upper_limit:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - choices
+      - created_at
+      - id
+      - position_index
+      - question_subtext
+      - question_text
+      - question_type
+      - scale_lower_limit
+      - scale_upper_limit
+      - survey
+      - updated_at
+    QuestionReorder:
+      type: object
+      properties:
+        question_a_id:
+          type: string
+          maxLength: 128
+        question_b_id:
+          type: string
+          maxLength: 128
+      required:
+      - question_a_id
+      - question_b_id
+    QuestionTypeEnum:
+      enum:
+      - text
+      - single_select
+      - multi_select
+      - single_select_other
+      - multi_select_other
+      - linear_scale
+      type: string
+      description: |-
+        * `text` - Text
+        * `single_select` - Single Select
+        * `multi_select` - Multi Select
+        * `single_select_other` - Single Select Other
+        * `multi_select_other` - Multi Select Other
+        * `linear_scale` - Linear Scale
+    RedemptionCreate:
+      type: object
+      properties:
+        offer_id:
+          type: string
+          maxLength: 128
+      required:
+      - offer_id
+    RedemptionList:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user_id:
+          type: string
+          readOnly: true
+        offer_id:
+          type: string
+          readOnly: true
+        offer_code:
+          type: string
+          readOnly: true
+        offer_title:
+          type: string
+          readOnly: true
+        client_name:
+          type: string
+          readOnly: true
+        redeemed_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - client_name
+      - id
+      - offer_code
+      - offer_id
+      - offer_title
+      - redeemed_at
+      - user_id
+    ResponseCreate:
+      type: object
+      properties:
+        survey_id:
+          type: string
+          maxLength: 128
+        survey_title:
+          type: string
+          maxLength: 500
+        user_id:
+          type: string
+          writeOnly: true
+        user_email:
+          type: string
+          format: email
+          writeOnly: true
+        points_earned:
+          type: integer
+          writeOnly: true
+        submitted_at:
+          type: string
+          format: date-time
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Answer'
+      required:
+      - answers
+      - submitted_at
+      - survey_id
+    ResponseList:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        survey_id:
+          type: string
+          readOnly: true
+        survey_title:
+          type: string
+          readOnly: true
+        user_id:
+          type: string
+          readOnly: true
+        user_email:
+          type: string
+          format: email
+          readOnly: true
+        points_earned:
+          type: integer
+          readOnly: true
+        submitted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        answers:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - answers
+      - created_at
+      - id
+      - points_earned
+      - submitted_at
+      - survey_id
+      - survey_title
+      - user_email
+      - user_id
+    SurveyDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SurveyStatusEnum'
+          readOnly: true
+        category:
+          type: string
+          readOnly: true
+        client_id:
+          type: string
+          default: ''
+        client_name:
+          type: string
+          default: ''
+        points:
+          type: integer
+          readOnly: true
+        question_count:
+          type: integer
+          readOnly: true
+        response_count:
+          type: integer
+          readOnly: true
+        estimated_time:
+          type: integer
+          readOnly: true
+          nullable: true
+        end_date:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+          readOnly: true
+      required:
+      - category
+      - created_at
+      - description
+      - end_date
+      - estimated_time
+      - id
+      - points
+      - question_count
+      - questions
+      - response_count
+      - status
+      - title
+      - updated_at
+    SurveyList:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SurveyStatusEnum'
+          readOnly: true
+        category:
+          type: string
+          readOnly: true
+        client_id:
+          type: string
+          default: ''
+        client_name:
+          type: string
+          default: ''
+        points:
+          type: integer
+          readOnly: true
+        question_count:
+          type: integer
+          readOnly: true
+        response_count:
+          type: integer
+          readOnly: true
+        estimated_time:
+          type: integer
+          readOnly: true
+          nullable: true
+        end_date:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - category
+      - created_at
+      - description
+      - end_date
+      - estimated_time
+      - id
+      - points
+      - question_count
+      - response_count
+      - status
+      - title
+      - updated_at
+    SurveyStatusEnum:
+      enum:
+      - draft
+      - active
+      - completed
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `active` - Active
+        * `completed` - Completed
+    TransferCreate:
+      type: object
+      properties:
+        recipient:
+          type: string
+          maxLength: 200
+        amount:
+          type: integer
+          minimum: 1
+        reference:
+          type: string
+          maxLength: 200
+        reason:
+          type: string
+          default: LookSharp cashout
+      required:
+      - amount
+      - recipient
+      - reference
+    TransferRecipientCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        account_number:
+          type: string
+          maxLength: 64
+        bank_code:
+          type: string
+          maxLength: 20
+        type:
+          type: string
+          default: mobile_money
+        currency:
+          type: string
+          default: GHS
+      required:
+      - account_number
+      - bank_code
+      - name
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        phone:
+          type: string
+          maxLength: 20
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          maxLength: 10
+        country:
+          type: string
+          maxLength: 100
+        profile_photo_url:
+          type: string
+          format: uri
+          maxLength: 500
+        points:
+          type: integer
+          readOnly: true
+        is_verified:
+          type: boolean
+          readOnly: true
+        recipient_code:
+          type: string
+          readOnly: true
+        is_admin:
+          type: boolean
+          readOnly: true
+        welcome_bonus_claimed:
+          type: boolean
+          readOnly: true
+        surveys_completed:
+          readOnly: true
+        offers_claimed:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - id
+      - is_admin
+      - is_verified
+      - offers_claimed
+      - points
+      - recipient_code
+      - surveys_completed
+      - updated_at
+      - welcome_bonus_claimed
+    UserUpdate:
+      type: object
+      description: PATCH /users/me/ - only client-writable fields accepted.
+      properties:
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        phone:
+          type: string
+          maxLength: 20
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          maxLength: 10
+        country:
+          type: string
+          maxLength: 100
+        profile_photo_url:
+          type: string
+          format: uri
+          maxLength: 500
+    VerificationCreate:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 255
+        gender:
+          type: string
+          maxLength: 32
+        nationality:
+          type: string
+          maxLength: 64
+        mobile_number:
+          type: string
+          maxLength: 32
+        network_provider:
+          $ref: '#/components/schemas/NetworkProviderEnum'
+        id_type:
+          $ref: '#/components/schemas/IdTypeEnum'
+        id_number:
+          type: string
+          maxLength: 128
+        id_front_url:
+          type: string
+          format: uri
+          maxLength: 500
+        id_back_url:
+          type: string
+          format: uri
+          maxLength: 500
+        selfie_url:
+          type: string
+          format: uri
+          maxLength: 500
+      required:
+      - full_name
+      - id_back_url
+      - id_front_url
+      - id_number
+      - id_type
+      - mobile_number
+      - network_provider
+      - selfie_url
+    VerificationList:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user_id:
+          type: string
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        gender:
+          type: string
+          readOnly: true
+        nationality:
+          type: string
+          readOnly: true
+        mobile_number:
+          type: string
+          readOnly: true
+        network_provider:
+          allOf:
+          - $ref: '#/components/schemas/NetworkProviderEnum'
+          readOnly: true
+        id_type:
+          allOf:
+          - $ref: '#/components/schemas/IdTypeEnum'
+          readOnly: true
+        id_number:
+          type: string
+          readOnly: true
+        id_front_url:
+          type: string
+          format: uri
+          readOnly: true
+        id_back_url:
+          type: string
+          format: uri
+          readOnly: true
+        selfie_url:
+          type: string
+          format: uri
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/VerificationStatusEnum'
+          readOnly: true
+        rejection_reason:
+          type: string
+          readOnly: true
+        reviewed_by:
+          type: string
+          readOnly: true
+        reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        submitted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - full_name
+      - gender
+      - id
+      - id_back_url
+      - id_front_url
+      - id_number
+      - id_type
+      - mobile_number
+      - nationality
+      - network_provider
+      - rejection_reason
+      - reviewed_at
+      - reviewed_by
+      - selfie_url
+      - status
+      - submitted_at
+      - updated_at
+      - user_id
+    VerificationReject:
+      type: object
+      properties:
+        rejection_reason:
+          type: string
+          maxLength: 1000
+      required:
+      - rejection_reason
+    VerificationStatusEnum:
+      enum:
+      - pending
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `approved` - Approved
+        * `rejected` - Rejected
+    WithdrawalCreate:
+      type: object
+      properties:
+        amount_ghs:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        points_converted:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+      required:
+      - amount_ghs
+      - points_converted
+    WithdrawalList:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user_id:
+          type: string
+          readOnly: true
+        amount_ghs:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        points_converted:
+          type: integer
+          readOnly: true
+        recipient_code:
+          type: string
+          readOnly: true
+        transfer_reference:
+          type: string
+          readOnly: true
+        transfer_code:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/WithdrawalStatusEnum'
+          readOnly: true
+        failure_reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - amount_ghs
+      - completed_at
+      - created_at
+      - failure_reason
+      - id
+      - points_converted
+      - recipient_code
+      - status
+      - transfer_code
+      - transfer_reference
+      - updated_at
+      - user_id
+    WithdrawalStatusEnum:
+      enum:
+      - pending
+      - processing
+      - completed
+      - failed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `processing` - Processing
+        * `completed` - Completed
+        * `failed` - Failed
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Firebase ID token. Format: Bearer <token>'

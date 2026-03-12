@@ -1,4 +1,5 @@
 from unittest.mock import patch
+from datetime import timedelta
 
 import pytest
 from django.utils import timezone
@@ -35,6 +36,21 @@ class TestSurveyEndpoints:
         assert len(resp.data["results"]) == 1
         assert resp.data["results"][0]["id"] == "s1"
 
+    def test_list_excludes_expired_surveys(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u1-exp", "email": "exp@b.com"}
+        User.objects.create(id="u1-exp", email="exp@b.com")
+        now = timezone.now()
+        Survey.objects.create(id="s-expired", title="Expired", status="active", end_date=now - timedelta(minutes=1))
+        Survey.objects.create(id="s-open", title="Open", status="active", end_date=now + timedelta(days=1))
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.get("/api/v1/surveys/")
+
+        assert resp.status_code == 200
+        assert resp.data["count"] == 1
+        assert resp.data["results"][0]["id"] == "s-open"
+
     def test_detail_includes_questions(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u2", "email": "b@b.com"}
         User.objects.create(id="u2", email="b@b.com")
@@ -54,6 +70,28 @@ class TestSurveyEndpoints:
         assert resp.data["id"] == "s1"
         assert len(resp.data["questions"]) == 1
         assert resp.data["questions"][0]["question_text"] == "How are you?"
+
+    def test_detail_returns_404_for_expired_active_survey(self, mock_firebase):
+        mock_firebase.return_value = {"uid": "u2-exp", "email": "u2-exp@b.com"}
+        User.objects.create(id="u2-exp", email="u2-exp@b.com")
+        survey = Survey.objects.create(
+            id="s-expired-detail",
+            title="Expired",
+            status="active",
+            end_date=timezone.now() - timedelta(minutes=1),
+        )
+        Question.objects.create(
+            survey=survey,
+            question_text="How are you?",
+            question_type="text",
+            position_index=0,
+        )
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.get(f"/api/v1/surveys/{survey.id}/")
+
+        assert resp.status_code == 404
 
     def test_list_requires_auth(self):
         client = APIClient()

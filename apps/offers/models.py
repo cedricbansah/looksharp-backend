@@ -29,7 +29,6 @@ class Offer(models.Model):
         related_name="offers",
     )
     offer_code = models.CharField(max_length=64, blank=True, db_index=True)
-    points_required = models.PositiveIntegerField(default=0)
     end_date = models.DateTimeField(null=True, blank=True)
     days_remaining = models.PositiveIntegerField(default=0)
     is_featured = models.BooleanField(default=False)
@@ -54,7 +53,6 @@ class Redemption(models.Model):
     offer_code = models.CharField(max_length=64, blank=True)
     offer_title = models.CharField(max_length=200, blank=True)
     client_name = models.CharField(max_length=255, blank=True)
-    points_spent = models.PositiveIntegerField(default=0)
     redeemed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

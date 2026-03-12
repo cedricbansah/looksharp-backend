@@ -93,6 +93,28 @@ class TestAdminClientEndpoints:
         assert first.status_code == 201
         assert second.status_code == 201
 
+    def test_blank_client_code_can_be_set_once_then_becomes_immutable(self, mock_firebase):
+        admin = User.objects.create(id="admin-client-set-once", email="admin-client-set-once@b.com", is_admin=True)
+        created = Client.objects.create(id="client-set-once", name="Set Once", client_code=None)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client_api = APIClient()
+        client_api.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        first_update = client_api.patch(
+            f"/api/v1/admin/clients/{created.id}/",
+            {"client_code": "SET001"},
+            format="json",
+        )
+        assert first_update.status_code == 200
+
+        second_update = client_api.patch(
+            f"/api/v1/admin/clients/{created.id}/",
+            {"client_code": "SET002"},
+            format="json",
+        )
+        assert second_update.status_code == 400
+
     def test_logo_upload(self, mock_firebase):
         admin = User.objects.create(id="admin-client-4", email="admin-client-4@b.com", is_admin=True)
         created = Client.objects.create(id="client-logo-1", name="Logo")
