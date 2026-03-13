@@ -1,11 +1,21 @@
 from typing import Any
 
 from drf_spectacular.utils import extend_schema_field
+from django.db.models import Q
 from rest_framework import serializers
 
 from apps.clients.models import Client
 
-from .models import Question, Survey
+from .models import Question, Survey, SurveyCategory
+
+
+def _validate_survey_category(value: str) -> str:
+    if not value:
+        return value
+    exists = SurveyCategory.objects.filter(Q(id=value) | Q(name=value)).exists()
+    if not exists:
+        raise serializers.ValidationError("Unknown survey category.")
+    return value
 
 
 class QuestionSerializer(serializers.ModelSerializer):
@@ -87,6 +97,9 @@ class AdminSurveyCreateSerializer(serializers.ModelSerializer):
             "created_by",
         ]
 
+    def validate_category(self, value):
+        return _validate_survey_category(value)
+
 
 class AdminSurveyUpdateSerializer(serializers.ModelSerializer):
     client_id = serializers.PrimaryKeyRelatedField(
@@ -110,6 +123,9 @@ class AdminSurveyUpdateSerializer(serializers.ModelSerializer):
             "created_by",
         ]
         extra_kwargs = {field: {"required": False} for field in fields}
+
+    def validate_category(self, value):
+        return _validate_survey_category(value)
 
 
 class AdminQuestionCreateSerializer(serializers.ModelSerializer):
@@ -181,3 +197,36 @@ class QuestionReorderSerializer(serializers.Serializer):
         if attrs["question_a_id"] == attrs["question_b_id"]:
             raise serializers.ValidationError("question_a_id and question_b_id must be different.")
         return attrs
+
+
+class SurveyCategorySerializer(serializers.ModelSerializer):
+    survey_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = SurveyCategory
+        fields = [
+            "id",
+            "name",
+            "icon",
+            "survey_count",
+        ]
+        read_only_fields = fields
+
+
+class SurveyCategoryCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SurveyCategory
+        fields = [
+            "name",
+            "icon",
+        ]
+
+
+class SurveyCategoryUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SurveyCategory
+        fields = [
+            "name",
+            "icon",
+        ]
+        extra_kwargs = {field: {"required": False} for field in fields}

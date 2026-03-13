@@ -210,6 +210,132 @@ paths:
               schema:
                 $ref: '#/components/schemas/DashboardCounter'
           description: ''
+  /api/v1/admin/offer-categories/:
+    get:
+      operationId: v1_admin_offer_categories_list
+      description: List offer categories.
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OfferCategory'
+          description: ''
+    post:
+      operationId: v1_admin_offer_categories_create
+      description: Create a new offer category.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfferCategoryCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OfferCategoryCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OfferCategoryCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferCategory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/offer-categories/{category_id}/:
+    patch:
+      operationId: v1_admin_offer_categories_partial_update
+      description: Update an existing offer category.
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOfferCategoryUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOfferCategoryUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOfferCategoryUpdate'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferCategory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: v1_admin_offer_categories_destroy
+      description: Delete an offer category if it is not referenced by offers.
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/admin/offers/:
     get:
       operationId: v1_admin_offers_list
@@ -432,6 +558,132 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResponseList'
+          description: ''
+  /api/v1/admin/survey-categories/:
+    get:
+      operationId: v1_admin_survey_categories_list
+      description: List survey categories.
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SurveyCategory'
+          description: ''
+    post:
+      operationId: v1_admin_survey_categories_create
+      description: Create a new survey category.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SurveyCategoryCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SurveyCategoryCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SurveyCategoryCreate'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurveyCategory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/survey-categories/{category_id}/:
+    patch:
+      operationId: v1_admin_survey_categories_partial_update
+      description: Update an existing survey category.
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSurveyCategoryUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSurveyCategoryUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSurveyCategoryUpdate'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurveyCategory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: v1_admin_survey_categories_destroy
+      description: Delete a survey category if it is not referenced by surveys.
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
           description: ''
   /api/v1/admin/surveys/:
     get:
@@ -1019,6 +1271,20 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+          description: ''
+  /api/v1/config/enums/:
+    get:
+      operationId: v1_config_enums_retrieve
+      description: Return backend-owned enum options and category configuration for
+        clients.
+      tags:
+      - v1
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigEnumsResponse'
           description: ''
   /api/v1/offers/:
     get:
@@ -1609,6 +1875,9 @@ components:
         client_id:
           type: string
           nullable: true
+        offer_code:
+          type: string
+          readOnly: true
         end_date:
           type: string
           format: date-time
@@ -1616,6 +1885,7 @@ components:
         is_featured:
           type: boolean
       required:
+      - offer_code
       - title
     AdminOfferPosterUploadRequest:
       type: object
@@ -1639,13 +1909,9 @@ components:
         choices: {}
         scale_lower_limit:
           type: integer
-          maximum: 2147483647
-          minimum: -2147483648
           nullable: true
         scale_upper_limit:
           type: integer
-          maximum: 2147483647
-          minimum: -2147483648
           nullable: true
       required:
       - question_text
@@ -1667,12 +1933,8 @@ components:
           nullable: true
         points:
           type: integer
-          maximum: 2147483647
-          minimum: 0
         estimated_time:
           type: integer
-          maximum: 2147483647
-          minimum: 0
           nullable: true
         end_date:
           type: string
@@ -1842,6 +2104,60 @@ components:
           maxLength: 500
       required:
       - name
+    ConfigEnumsResponse:
+      type: object
+      properties:
+        survey_statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumOption'
+        question_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumOption'
+        offer_statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumOption'
+        verification_statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumOption'
+        withdrawal_statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumOption'
+        network_providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumOption'
+        id_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumOption'
+        genders:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumOption'
+        survey_categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurveyCategoryConfig'
+        offer_categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfferCategoryConfig'
+      required:
+      - genders
+      - id_types
+      - network_providers
+      - offer_categories
+      - offer_statuses
+      - question_types
+      - survey_categories
+      - survey_statuses
+      - verification_statuses
+      - withdrawal_statuses
     DashboardCounter:
       type: object
       properties:
@@ -1889,6 +2205,16 @@ components:
       - total_users
       - updated_at
       - verified_users
+    EnumOption:
+      type: object
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
     IdTypeEnum:
       enum:
       - ghana_card
@@ -1900,7 +2226,7 @@ components:
         * `ghana_card` - Ghana Card
         * `passport` - Passport
         * `voter_id` - Voter ID
-        * `drivers_license` - Drivers License
+        * `drivers_license` - Driver's License
     NetworkProviderEnum:
       enum:
       - MTN
@@ -1911,6 +2237,53 @@ components:
         * `MTN` - MTN
         * `Telecel` - Telecel
         * `ATMoney` - ATMoney
+    OfferCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        icon:
+          type: string
+          readOnly: true
+        offer_count:
+          type: integer
+          readOnly: true
+      required:
+      - icon
+      - id
+      - name
+      - offer_count
+    OfferCategoryConfig:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+        offer_count:
+          type: integer
+      required:
+      - icon
+      - id
+      - name
+      - offer_count
+    OfferCategoryCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        icon:
+          type: string
+          maxLength: 32
+      required:
+      - name
     OfferList:
       type: object
       properties:
@@ -2224,6 +2597,9 @@ components:
         client_id:
           type: string
           nullable: true
+        offer_code:
+          type: string
+          readOnly: true
         end_date:
           type: string
           format: date-time
@@ -2244,13 +2620,9 @@ components:
         choices: {}
         scale_lower_limit:
           type: integer
-          maximum: 2147483647
-          minimum: -2147483648
           nullable: true
         scale_upper_limit:
           type: integer
-          maximum: 2147483647
-          minimum: -2147483648
           nullable: true
     PatchedAdminSurveyUpdate:
       type: object
@@ -2270,12 +2642,8 @@ components:
           nullable: true
         points:
           type: integer
-          maximum: 2147483647
-          minimum: 0
         estimated_time:
           type: integer
-          maximum: 2147483647
-          minimum: 0
           nullable: true
         end_date:
           type: string
@@ -2321,6 +2689,24 @@ components:
           type: string
           format: uri
           maxLength: 500
+    PatchedOfferCategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        icon:
+          type: string
+          maxLength: 32
+    PatchedSurveyCategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        icon:
+          type: string
+          maxLength: 32
     PatchedUserUpdate:
       type: object
       description: PATCH /users/me/ - only client-writable fields accepted.
@@ -2425,8 +2811,8 @@ components:
         * `text` - Text
         * `single_select` - Single Select
         * `multi_select` - Multi Select
-        * `single_select_other` - Single Select Other
-        * `multi_select_other` - Multi Select Other
+        * `single_select_other` - Single Select + Text
+        * `multi_select_other` - Multi Select + Text
         * `linear_scale` - Linear Scale
     RedemptionCreate:
       type: object
@@ -2543,6 +2929,53 @@ components:
       - survey_title
       - user_email
       - user_id
+    SurveyCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        icon:
+          type: string
+          readOnly: true
+        survey_count:
+          type: integer
+          readOnly: true
+      required:
+      - icon
+      - id
+      - name
+      - survey_count
+    SurveyCategoryConfig:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+        survey_count:
+          type: integer
+      required:
+      - icon
+      - id
+      - name
+      - survey_count
+    SurveyCategoryCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        icon:
+          type: string
+          maxLength: 32
+      required:
+      - name
     SurveyDetail:
       type: object
       properties:
@@ -2989,8 +3422,6 @@ components:
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
         points_converted:
           type: integer
-          maximum: 2147483647
-          minimum: 0
       required:
       - amount_ghs
       - points_converted

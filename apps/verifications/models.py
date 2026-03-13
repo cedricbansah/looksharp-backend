@@ -20,7 +20,7 @@ ID_TYPE_CHOICES = [
     ("ghana_card", "Ghana Card"),
     ("passport", "Passport"),
     ("voter_id", "Voter ID"),
-    ("drivers_license", "Drivers License"),
+    ("drivers_license", "Driver's License"),
 ]
 
 
