@@ -1,11 +1,10 @@
 import uuid
 
 from django.db import transaction
-from django.db.models import Case, F, Max, Value, When
-from django.db.models import Q
+from django.db.models import Case, F, Max, Q, Value, When
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -14,7 +13,7 @@ from rest_framework.views import APIView
 from apps.core.permissions import IsAdmin
 from apps.responses.models import Response as SurveyResponse
 
-from .models import Question, Survey
+from .models import Question, Survey, SurveyCategory
 from .serializers import (
     AdminQuestionCreateSerializer,
     AdminQuestionUpdateSerializer,
@@ -22,9 +21,16 @@ from .serializers import (
     AdminSurveyUpdateSerializer,
     QuestionReorderSerializer,
     QuestionSerializer,
+    SurveyCategoryCreateSerializer,
+    SurveyCategorySerializer,
+    SurveyCategoryUpdateSerializer,
     SurveyDetailSerializer,
     SurveyListSerializer,
 )
+
+
+def _survey_category_filter(category: SurveyCategory) -> Q:
+    return Q(category=category.id) | Q(category=category.name)
 
 
 class SurveyListView(generics.ListAPIView):
@@ -260,3 +266,98 @@ class AdminQuestionReorderView(APIView):
             question_b.save(update_fields=["position_index", "updated_at"])
 
         return Response({"success": True}, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        responses={200: SurveyCategorySerializer(many=True)},
+        description="List survey categories.",
+    ),
+    post=extend_schema(
+        request=SurveyCategoryCreateSerializer,
+        responses={
+            201: SurveyCategorySerializer,
+            400: OpenApiTypes.OBJECT,
+        },
+        description="Create a new survey category.",
+    )
+)
+class AdminSurveyCategoryListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = None
+
+    def get_queryset(self):
+        return SurveyCategory.objects.all().order_by("name")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        data = []
+        for category in queryset:
+            payload = SurveyCategorySerializer(category).data
+            payload["survey_count"] = Survey.objects.filter(_survey_category_filter(category)).count()
+            data.append(payload)
+        return Response(data)
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return SurveyCategoryCreateSerializer
+        return SurveyCategorySerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        category = serializer.save(id=str(uuid.uuid4()))
+        payload = SurveyCategorySerializer(category).data
+        payload["survey_count"] = 0
+        return Response(payload, status=status.HTTP_201_CREATED)
+
+
+class AdminSurveyCategoryUpdateDeleteView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @extend_schema(
+        request=SurveyCategoryUpdateSerializer,
+        responses={
+            200: SurveyCategorySerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Update an existing survey category.",
+    )
+    def patch(self, request, category_id):
+        category = SurveyCategory.objects.filter(id=category_id).first()
+        if not category:
+            return Response({"error": "Survey category not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SurveyCategoryUpdateSerializer(category, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        payload = SurveyCategorySerializer(category).data
+        payload["survey_count"] = Survey.objects.filter(_survey_category_filter(category)).count()
+        return Response(payload)
+
+    @extend_schema(
+        request=None,
+        responses={
+            204: None,
+            404: OpenApiTypes.OBJECT,
+            409: OpenApiTypes.OBJECT,
+        },
+        description="Delete a survey category if it is not referenced by surveys.",
+    )
+    def delete(self, request, category_id):
+        with transaction.atomic():
+            category = SurveyCategory.objects.select_for_update().filter(id=category_id).first()
+            if not category:
+                return Response({"error": "Survey category not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if Survey.objects.filter(_survey_category_filter(category)).exists():
+                return Response(
+                    {"error": "Cannot delete survey category referenced by surveys."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            category.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

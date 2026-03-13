@@ -1,8 +1,18 @@
+from django.db.models import Q
 from rest_framework import serializers
 
 from apps.clients.models import Client
 
-from .models import Offer, Redemption
+from .models import Offer, OfferCategory, Redemption
+
+
+def _validate_offer_category(value: str) -> str:
+    if not value:
+        return value
+    exists = OfferCategory.objects.filter(Q(id=value) | Q(name=value)).exists()
+    if not exists:
+        raise serializers.ValidationError("Unknown offer category.")
+    return value
 
 
 class OfferListSerializer(serializers.ModelSerializer):
@@ -83,6 +93,8 @@ class AdminOfferCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"offer_code": "offer_code is inherited from the selected client and cannot be set manually."}
             )
+        if "category" in attrs:
+            attrs["category"] = _validate_offer_category(attrs["category"])
         return super().validate(attrs)
 
     def create(self, validated_data):
@@ -121,6 +133,8 @@ class AdminOfferUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"offer_code": "offer_code is inherited from the selected client and cannot be set manually."}
             )
+        if "category" in attrs:
+            attrs["category"] = _validate_offer_category(attrs["category"])
         return super().validate(attrs)
 
     def update(self, instance, validated_data):
@@ -128,3 +142,36 @@ class AdminOfferUpdateSerializer(serializers.ModelSerializer):
             client = validated_data.get("client")
             validated_data["offer_code"] = (client.client_code or "") if client else ""
         return super().update(instance, validated_data)
+
+
+class OfferCategorySerializer(serializers.ModelSerializer):
+    offer_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = OfferCategory
+        fields = [
+            "id",
+            "name",
+            "icon",
+            "offer_count",
+        ]
+        read_only_fields = fields
+
+
+class OfferCategoryCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OfferCategory
+        fields = [
+            "name",
+            "icon",
+        ]
+
+
+class OfferCategoryUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OfferCategory
+        fields = [
+            "name",
+            "icon",
+        ]
+        extra_kwargs = {field: {"required": False} for field in fields}

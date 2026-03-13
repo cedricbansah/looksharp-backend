@@ -13,8 +13,8 @@ QUESTION_TYPE_CHOICES = [
     ("text", "Text"),
     ("single_select", "Single Select"),
     ("multi_select", "Multi Select"),
-    ("single_select_other", "Single Select Other"),
-    ("multi_select_other", "Multi Select Other"),
+    ("single_select_other", "Single Select + Text"),
+    ("multi_select_other", "Multi Select + Text"),
     ("linear_scale", "Linear Scale"),
 ]
 
@@ -54,6 +54,21 @@ class Survey(models.Model):
 
     def __str__(self):
         return self.title or self.id
+
+
+class SurveyCategory(models.Model):
+    id = models.CharField(max_length=128, primary_key=True)
+    name = models.CharField(max_length=100, unique=True, db_index=True)
+    icon = models.CharField(max_length=32, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "survey_categories"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
 
 
 class Question(models.Model):

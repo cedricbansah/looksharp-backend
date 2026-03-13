@@ -46,3 +46,20 @@ ruff check apps/users/
 # Lint all CI-checked files
 ruff check apps/ config/settings/base.py config/urls.py services/paystack.py
 ```
+
+## Firestore Migration
+
+```bash
+# Dry-run Firestore -> Postgres migration
+python manage.py migrate_firestore_to_postgres \
+  --config apps/core/migration/firestore_to_postgres.mapping.json \
+  --settings=config.settings.prod \
+  --dry-run
+
+# Live run
+python manage.py migrate_firestore_to_postgres \
+  --config apps/core/migration/firestore_to_postgres.mapping.json \
+  --settings=config.settings.prod
+```
+
+See `docs/firestore-to-postgres-migration.md` for full runbook and verification SQL.
