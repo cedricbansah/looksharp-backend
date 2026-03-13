@@ -507,11 +507,13 @@ def flush_batch(
         return len(rows)
     except Exception as batch_exc:  # noqa: BLE001
         conn.rollback()
+        recovered = 0
         for doc_path, row in rows:
             try:
                 with conn.cursor() as cursor:
                     execute_values(cursor, sql_text, [row], page_size=1)
                 conn.commit()
+                recovered += 1
             except Exception as row_exc:  # noqa: BLE001
                 conn.rollback()
                 raise ValueError(
@@ -524,7 +526,7 @@ def flush_batch(
                         varchar_limits=varchar_limits,
                     )
                 ) from batch_exc
-        raise
+        return recovered
 
 
 def migrate_mapping(
