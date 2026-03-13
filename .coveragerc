@@ -1,9 +1,13 @@
 [run]
 omit =
+    */migrations/*
     config/settings/prod.py
     config/settings/staging.py
     config/asgi.py
     config/wsgi.py
+    apps/core/firestore_migration.py
+    apps/core/management/commands/backfill_category_tables.py
+    apps/core/management/commands/migrate_firestore_to_postgres.py
     apps/core/management/commands/seed_staging.py
 
 [report]
