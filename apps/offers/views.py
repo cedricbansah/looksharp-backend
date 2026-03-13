@@ -1,10 +1,11 @@
+import uuid
 import logging
 
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import generics, serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -13,11 +14,14 @@ from apps.core.permissions import IsAdmin
 from apps.users.models import User
 from services.r2 import upload_file
 
-from .models import Offer, Redemption
+from .models import Offer, OfferCategory, Redemption
 from .serializers import (
     AdminOfferCreateSerializer,
     AdminOfferUpdateSerializer,
     OfferListSerializer,
+    OfferCategoryCreateSerializer,
+    OfferCategorySerializer,
+    OfferCategoryUpdateSerializer,
     RedemptionCreateSerializer,
     RedemptionListSerializer,
 )
@@ -25,6 +29,10 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
+
+
+def _offer_category_filter(category: OfferCategory) -> Q:
+    return Q(category=category.id) | Q(category=category.name)
 
 
 def _detected_image_content_type(file_obj):
@@ -245,3 +253,99 @@ class AdminOfferPosterUploadView(generics.GenericAPIView):
         offer.save(update_fields=["poster_url", "updated_at"])
 
         return Response(OfferListSerializer(offer).data, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        request=OfferCategoryCreateSerializer,
+        responses={
+            201: OfferCategorySerializer,
+            400: OpenApiTypes.OBJECT,
+        },
+        description="Create a new offer category.",
+    )
+)
+class AdminOfferCategoryListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get_queryset(self):
+        return OfferCategory.objects.all().order_by("name")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        categories = page if page is not None else queryset
+        data = []
+        for category in categories:
+            payload = OfferCategorySerializer(category).data
+            payload["offer_count"] = Offer.objects.filter(_offer_category_filter(category)).count()
+            data.append(payload)
+        if page is not None:
+            return self.get_paginated_response(data)
+        return Response(data)
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return OfferCategoryCreateSerializer
+        return OfferCategorySerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        category = serializer.save(id=str(uuid.uuid4()))
+        payload = OfferCategorySerializer(category).data
+        payload["offer_count"] = 0
+        return Response(payload, status=status.HTTP_201_CREATED)
+
+
+class AdminOfferCategoryUpdateDeleteView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    queryset = OfferCategory.objects.all()
+    serializer_class = OfferCategoryUpdateSerializer
+
+    @extend_schema(
+        request=OfferCategoryUpdateSerializer,
+        responses={
+            200: OfferCategorySerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Update an existing offer category.",
+    )
+    def patch(self, request, category_id):
+        category = self.get_queryset().filter(id=category_id).first()
+        if not category:
+            return Response({"error": "Offer category not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(category, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        payload = OfferCategorySerializer(category).data
+        payload["offer_count"] = Offer.objects.filter(_offer_category_filter(category)).count()
+        return Response(payload)
+
+    @extend_schema(
+        request=None,
+        responses={
+            204: None,
+            404: OpenApiTypes.OBJECT,
+            409: OpenApiTypes.OBJECT,
+        },
+        description="Delete an offer category if it is not referenced by offers.",
+    )
+    def delete(self, request, category_id):
+        with transaction.atomic():
+            category = self.get_queryset().select_for_update().filter(id=category_id).first()
+            if not category:
+                return Response({"error": "Offer category not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if Offer.objects.filter(_offer_category_filter(category)).exists():
+                return Response(
+                    {"error": "Cannot delete offer category referenced by offers."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            category.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

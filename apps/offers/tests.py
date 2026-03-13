@@ -8,7 +8,7 @@ from freezegun import freeze_time
 from rest_framework.test import APIClient
 
 from apps.clients.models import Client
-from apps.offers.models import Offer, Redemption
+from apps.offers.models import Offer, OfferCategory, Redemption
 from apps.offers.tasks import _days_remaining, recompute_status
 from apps.users.models import User
 
@@ -130,9 +130,52 @@ class TestOfferEndpoints:
 
 @pytest.mark.django_db
 class TestAdminOfferEndpoints:
+    def test_admin_can_manage_offer_categories(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-cat-1", email="admin-offer-cat-1@b.com", is_admin=True)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        create = client.post(
+            "/api/v1/admin/offer-categories/",
+            {"name": "Food & Drink", "icon": "🍔"},
+            format="json",
+        )
+        assert create.status_code == 201
+        category_id = create.data["id"]
+
+        Offer.objects.create(id="offer-cat-usage", title="Usage", status="inactive", category=category_id)
+
+        listing = client.get("/api/v1/admin/offer-categories/")
+        assert listing.status_code == 200
+        assert listing.data["results"][0]["offer_count"] == 1
+
+        update = client.patch(
+            f"/api/v1/admin/offer-categories/{category_id}/",
+            {"name": "Food"},
+            format="json",
+        )
+        assert update.status_code == 200
+        assert update.data["name"] == "Food"
+
+    def test_admin_cannot_delete_used_offer_category(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-cat-2", email="admin-offer-cat-2@b.com", is_admin=True)
+        category = OfferCategory.objects.create(id="offer-category-guard", name="Food & Drink", icon="🍔")
+        Offer.objects.create(id="offer-guard-category", title="Guard", status="inactive", category=category.id)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.delete(f"/api/v1/admin/offer-categories/{category.id}/")
+
+        assert resp.status_code == 409
+        assert OfferCategory.objects.filter(id=category.id).exists()
+
     def test_admin_create_offer_inherits_client_code(self, mock_firebase):
         admin = User.objects.create(id="admin-offer-inherit-1", email="admin-offer-inherit-1@b.com", is_admin=True)
         client_obj = Client.objects.create(id="client-offer-inherit-1", name="Acme", client_code="ACME001")
+        category = OfferCategory.objects.create(id="offer-category-1", name="Food & Drink", icon="🍔")
         mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
 
         client = APIClient()
@@ -143,6 +186,7 @@ class TestAdminOfferEndpoints:
             {
                 "title": "Offer Inherit",
                 "status": "inactive",
+                "category": category.id,
                 "client_id": client_obj.id,
             },
             format="json",
@@ -155,6 +199,7 @@ class TestAdminOfferEndpoints:
     def test_admin_create_offer_rejects_manual_offer_code(self, mock_firebase):
         admin = User.objects.create(id="admin-offer-manual-1", email="admin-offer-manual-1@b.com", is_admin=True)
         client_obj = Client.objects.create(id="client-offer-manual-1", name="Acme", client_code="ACME001")
+        category = OfferCategory.objects.create(id="offer-category-2", name="Lifestyle", icon="✨")
         mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
 
         client = APIClient()
@@ -165,6 +210,7 @@ class TestAdminOfferEndpoints:
             {
                 "title": "Offer Manual",
                 "status": "inactive",
+                "category": category.id,
                 "client_id": client_obj.id,
                 "offer_code": "MANUAL001",
             },
@@ -203,10 +249,12 @@ class TestAdminOfferEndpoints:
         admin = User.objects.create(id="admin-offer-client-swap", email="admin-offer-client-swap@b.com", is_admin=True)
         first_client = Client.objects.create(id="client-offer-swap-1", name="Acme", client_code="ACME001")
         second_client = Client.objects.create(id="client-offer-swap-2", name="Beta", client_code="BETA001")
+        category = OfferCategory.objects.create(id="offer-category-3", name="Travel", icon="✈️")
         offer = Offer.objects.create(
             id="offer-client-swap-1",
             title="Offer Client Swap",
             status="inactive",
+            category=category.id,
             client=first_client,
             offer_code="ACME001",
         )
@@ -233,6 +281,7 @@ class TestAdminOfferEndpoints:
             name="Acme",
             logo_url="https://cdn.example/clients/acme/logo",
         )
+        category = OfferCategory.objects.create(id="offer-category-4", name="Retail", icon="🛍️")
         mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
 
         client = APIClient()
@@ -243,6 +292,7 @@ class TestAdminOfferEndpoints:
             {
                 "title": "Offer A",
                 "status": "inactive",
+                "category": category.id,
                 "client_id": client_obj.id,
             },
             format="json",
@@ -265,6 +315,25 @@ class TestAdminOfferEndpoints:
         delete = client.delete(f"/api/v1/admin/offers/{offer_id}/")
         assert delete.status_code == 204
         assert not Offer.objects.filter(id=offer_id).exists()
+
+    def test_admin_create_offer_rejects_unknown_category(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-unknown-cat", email="admin-offer-unknown-cat@b.com", is_admin=True)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        response = client.post(
+            "/api/v1/admin/offers/",
+            {
+                "title": "Offer A",
+                "status": "inactive",
+                "category": "unknown-category",
+            },
+            format="json",
+        )
+
+        assert response.status_code == 400
+        assert response.data["error"]["non_field_errors"][0] == "Unknown offer category."
 
     def test_admin_delete_offer_with_redemptions_returns_409(self, mock_firebase):
         admin = User.objects.create(id="admin-offer-2", email="admin-offer-2@b.com", is_admin=True)

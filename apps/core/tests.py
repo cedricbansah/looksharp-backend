@@ -5,7 +5,9 @@ from firebase_admin import auth as firebase_auth
 import pytest
 from rest_framework.test import APIClient
 
+from apps.offers.models import Offer, OfferCategory
 from apps.core.permissions import IsOwnerOrAdmin
+from apps.surveys.models import Survey, SurveyCategory
 from apps.users.models import User
 
 
@@ -50,6 +52,65 @@ def test_empty_bearer_token_returns_401():
     client = APIClient()
     response = client.get("/api/v1/users/me/", HTTP_AUTHORIZATION="Bearer ")
     assert response.status_code == 401
+
+
+@pytest.mark.django_db
+def test_config_enums_is_public_and_cacheable():
+    survey_category = SurveyCategory.objects.create(id="survey-tech", name="Technology", icon="💻")
+    offer_category = OfferCategory.objects.create(id="offer-food", name="Food & Drink", icon="🍔")
+    Survey.objects.create(id="survey-1", title="Survey One", status="draft", category=survey_category.id)
+    Survey.objects.create(id="survey-2", title="Survey Two", status="draft", category=survey_category.name)
+    Offer.objects.create(id="offer-1", title="Offer One", status="inactive", category=offer_category.id)
+
+    client = APIClient()
+    response = client.get("/api/v1/config/enums/")
+
+    assert response.status_code == 200
+    assert response["Cache-Control"] == "public, max-age=3600"
+    assert response.data["network_providers"] == [
+        {"value": "MTN", "label": "MTN"},
+        {"value": "Telecel", "label": "Telecel"},
+        {"value": "ATMoney", "label": "ATMoney"},
+    ]
+    assert response.data["genders"] == [
+        {"value": "male", "label": "Male"},
+        {"value": "female", "label": "Female"},
+        {"value": "other", "label": "Other"},
+    ]
+    assert response.data["question_types"][3] == {
+        "value": "single_select_other",
+        "label": "Single Select + Text",
+    }
+    assert response.data["id_types"][3] == {
+        "value": "drivers_license",
+        "label": "Driver's License",
+    }
+    assert response.data["survey_categories"] == [
+        {
+            "id": "survey-tech",
+            "name": "Technology",
+            "icon": "💻",
+            "survey_count": 2,
+        }
+    ]
+    assert response.data["offer_categories"] == [
+        {
+            "id": "offer-food",
+            "name": "Food & Drink",
+            "icon": "🍔",
+            "offer_count": 1,
+        }
+    ]
+
+
+@pytest.mark.django_db
+def test_config_enums_returns_empty_category_arrays():
+    client = APIClient()
+    response = client.get("/api/v1/config/enums/")
+
+    assert response.status_code == 200
+    assert response.data["survey_categories"] == []
+    assert response.data["offer_categories"] == []
 
 
 @pytest.mark.django_db
