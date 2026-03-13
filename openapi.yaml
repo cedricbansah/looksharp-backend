@@ -213,19 +213,7 @@ paths:
   /api/v1/admin/offer-categories/:
     get:
       operationId: v1_admin_offer_categories_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: page_size
-        required: false
-        in: query
-        description: Number of results to return per page.
-        schema:
-          type: integer
+      description: List offer categories.
       tags:
       - v1
       security:
@@ -235,7 +223,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedOfferCategoryList'
+                type: array
+                items:
+                  $ref: '#/components/schemas/OfferCategory'
           description: ''
     post:
       operationId: v1_admin_offer_categories_create
@@ -572,19 +562,7 @@ paths:
   /api/v1/admin/survey-categories/:
     get:
       operationId: v1_admin_survey_categories_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: page_size
-        required: false
-        in: query
-        description: Number of results to return per page.
-        schema:
-          type: integer
+      description: List survey categories.
       tags:
       - v1
       security:
@@ -594,7 +572,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedSurveyCategoryList'
+                type: array
+                items:
+                  $ref: '#/components/schemas/SurveyCategory'
           description: ''
     post:
       operationId: v1_admin_survey_categories_create
@@ -2431,29 +2411,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Client'
-    PaginatedOfferCategoryList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/OfferCategory'
     PaginatedOfferListList:
       type: object
       required:
@@ -2546,29 +2503,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResponseList'
-    PaginatedSurveyCategoryList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/SurveyCategory'
     PaginatedSurveyListList:
       type: object
       required:

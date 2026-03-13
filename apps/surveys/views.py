@@ -269,6 +269,10 @@ class AdminQuestionReorderView(APIView):
 
 
 @extend_schema_view(
+    get=extend_schema(
+        responses={200: SurveyCategorySerializer(many=True)},
+        description="List survey categories.",
+    ),
     post=extend_schema(
         request=SurveyCategoryCreateSerializer,
         responses={
@@ -280,21 +284,18 @@ class AdminQuestionReorderView(APIView):
 )
 class AdminSurveyCategoryListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = None
 
     def get_queryset(self):
         return SurveyCategory.objects.all().order_by("name")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        page = self.paginate_queryset(queryset)
-        categories = page if page is not None else queryset
         data = []
-        for category in categories:
+        for category in queryset:
             payload = SurveyCategorySerializer(category).data
             payload["survey_count"] = Survey.objects.filter(_survey_category_filter(category)).count()
             data.append(payload)
-        if page is not None:
-            return self.get_paginated_response(data)
         return Response(data)
 
     def get_serializer_class(self):

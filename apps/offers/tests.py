@@ -149,7 +149,9 @@ class TestAdminOfferEndpoints:
 
         listing = client.get("/api/v1/admin/offer-categories/")
         assert listing.status_code == 200
-        assert listing.data["results"][0]["offer_count"] == 1
+        assert isinstance(listing.data, list)
+        assert listing.data[0]["offer_count"] == 1
+        assert set(listing.data[0].keys()) == {"id", "name", "icon", "offer_count"}
 
         update = client.patch(
             f"/api/v1/admin/offer-categories/{category_id}/",
@@ -171,6 +173,52 @@ class TestAdminOfferEndpoints:
 
         assert resp.status_code == 409
         assert OfferCategory.objects.filter(id=category.id).exists()
+
+    def test_admin_can_delete_unused_offer_category(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-cat-3", email="admin-offer-cat-3@b.com", is_admin=True)
+        category = OfferCategory.objects.create(id="offer-category-unused", name="Unused", icon="")
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.delete(f"/api/v1/admin/offer-categories/{category.id}/")
+
+        assert resp.status_code == 204
+        assert not OfferCategory.objects.filter(id=category.id).exists()
+
+    def test_admin_patch_missing_offer_category_returns_404(self, mock_firebase):
+        admin = User.objects.create(id="admin-offer-cat-4", email="admin-offer-cat-4@b.com", is_admin=True)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.patch(
+            "/api/v1/admin/offer-categories/missing-category/",
+            {"name": "Renamed"},
+            format="json",
+        )
+
+        assert resp.status_code == 404
+
+    def test_non_admin_cannot_access_offer_category_endpoints(self, mock_firebase):
+        user = User.objects.create(id="member-offer-cat-1", email="member-offer-cat-1@b.com", is_admin=False)
+        category = OfferCategory.objects.create(id="offer-category-member", name="Member Blocked", icon="")
+        mock_firebase.return_value = {"uid": user.id, "email": user.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        list_resp = client.get("/api/v1/admin/offer-categories/")
+        patch_resp = client.patch(
+            f"/api/v1/admin/offer-categories/{category.id}/",
+            {"name": "Blocked"},
+            format="json",
+        )
+        delete_resp = client.delete(f"/api/v1/admin/offer-categories/{category.id}/")
+
+        assert list_resp.status_code == 403
+        assert patch_resp.status_code == 403
+        assert delete_resp.status_code == 403
 
     def test_admin_create_offer_inherits_client_code(self, mock_firebase):
         admin = User.objects.create(id="admin-offer-inherit-1", email="admin-offer-inherit-1@b.com", is_admin=True)

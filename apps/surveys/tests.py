@@ -121,7 +121,9 @@ class TestAdminSurveyEndpoints:
 
         listing = client.get("/api/v1/admin/survey-categories/")
         assert listing.status_code == 200
-        assert listing.data["results"][0]["survey_count"] == 1
+        assert isinstance(listing.data, list)
+        assert listing.data[0]["survey_count"] == 1
+        assert set(listing.data[0].keys()) == {"id", "name", "icon", "survey_count"}
 
         update = client.patch(
             f"/api/v1/admin/survey-categories/{category_id}/",
@@ -143,6 +145,52 @@ class TestAdminSurveyEndpoints:
 
         assert resp.status_code == 409
         assert SurveyCategory.objects.filter(id=category.id).exists()
+
+    def test_admin_can_delete_unused_survey_category(self, mock_firebase):
+        admin = User.objects.create(id="admin-survey-cat-3", email="admin-survey-cat-3@b.com", is_admin=True)
+        category = SurveyCategory.objects.create(id="survey-category-unused", name="Unused", icon="")
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.delete(f"/api/v1/admin/survey-categories/{category.id}/")
+
+        assert resp.status_code == 204
+        assert not SurveyCategory.objects.filter(id=category.id).exists()
+
+    def test_admin_patch_missing_survey_category_returns_404(self, mock_firebase):
+        admin = User.objects.create(id="admin-survey-cat-4", email="admin-survey-cat-4@b.com", is_admin=True)
+        mock_firebase.return_value = {"uid": admin.id, "email": admin.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+        resp = client.patch(
+            "/api/v1/admin/survey-categories/missing-category/",
+            {"name": "Renamed"},
+            format="json",
+        )
+
+        assert resp.status_code == 404
+
+    def test_non_admin_cannot_access_survey_category_endpoints(self, mock_firebase):
+        user = User.objects.create(id="member-survey-cat-1", email="member-survey-cat-1@b.com", is_admin=False)
+        category = SurveyCategory.objects.create(id="survey-category-member", name="Member Blocked", icon="")
+        mock_firebase.return_value = {"uid": user.id, "email": user.email}
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer token")
+
+        list_resp = client.get("/api/v1/admin/survey-categories/")
+        patch_resp = client.patch(
+            f"/api/v1/admin/survey-categories/{category.id}/",
+            {"name": "Blocked"},
+            format="json",
+        )
+        delete_resp = client.delete(f"/api/v1/admin/survey-categories/{category.id}/")
+
+        assert list_resp.status_code == 403
+        assert patch_resp.status_code == 403
+        assert delete_resp.status_code == 403
 
     def test_admin_create_update_delete_survey(self, mock_firebase):
         admin = User.objects.create(id="admin-survey-1", email="admin-survey-1@b.com", is_admin=True)

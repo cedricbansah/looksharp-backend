@@ -114,6 +114,17 @@ def test_config_enums_returns_empty_category_arrays():
 
 
 @pytest.mark.django_db
+def test_config_enums_is_accessible_without_auth_header():
+    client = APIClient()
+
+    response = client.get("/api/v1/config/enums/")
+
+    assert response.status_code == 200
+    assert "survey_statuses" in response.data
+    assert "offer_categories" in response.data
+
+
+@pytest.mark.django_db
 def test_revoked_token_returns_401(mock_firebase):
     mock_firebase.side_effect = firebase_auth.RevokedIdTokenError("revoked")
 

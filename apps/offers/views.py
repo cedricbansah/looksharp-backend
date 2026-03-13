@@ -256,6 +256,10 @@ class AdminOfferPosterUploadView(generics.GenericAPIView):
 
 
 @extend_schema_view(
+    get=extend_schema(
+        responses={200: OfferCategorySerializer(many=True)},
+        description="List offer categories.",
+    ),
     post=extend_schema(
         request=OfferCategoryCreateSerializer,
         responses={
@@ -267,21 +271,18 @@ class AdminOfferPosterUploadView(generics.GenericAPIView):
 )
 class AdminOfferCategoryListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = None
 
     def get_queryset(self):
         return OfferCategory.objects.all().order_by("name")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        page = self.paginate_queryset(queryset)
-        categories = page if page is not None else queryset
         data = []
-        for category in categories:
+        for category in queryset:
             payload = OfferCategorySerializer(category).data
             payload["offer_count"] = Offer.objects.filter(_offer_category_filter(category)).count()
             data.append(payload)
-        if page is not None:
-            return self.get_paginated_response(data)
         return Response(data)
 
     def get_serializer_class(self):
