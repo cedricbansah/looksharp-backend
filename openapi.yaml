@@ -2272,21 +2272,11 @@ components:
         offer_count:
           type: integer
           readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
       required:
-      - created_at
       - icon
       - id
       - name
       - offer_count
-      - updated_at
     OfferCategoryConfig:
       type: object
       properties:
@@ -3020,21 +3010,11 @@ components:
         survey_count:
           type: integer
           readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
       required:
-      - created_at
       - icon
       - id
       - name
       - survey_count
-      - updated_at
     SurveyCategoryConfig:
       type: object
       properties:
