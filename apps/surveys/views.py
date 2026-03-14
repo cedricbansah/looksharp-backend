@@ -72,6 +72,7 @@ class AdminSurveyListCreateView(generics.ListCreateAPIView):
         return SurveyListSerializer
 
     def create(self, request, *args, **kwargs):
+        from .tasks import notify_users_new_survey
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         survey = serializer.save(
@@ -79,6 +80,8 @@ class AdminSurveyListCreateView(generics.ListCreateAPIView):
             question_count=0,
             response_count=0,
         )
+        if survey.status == "active":
+            notify_users_new_survey.delay(survey.id)
         return Response(SurveyListSerializer(survey).data, status=status.HTTP_201_CREATED)
 
 
@@ -95,13 +98,17 @@ class AdminSurveyUpdateDeleteView(APIView):
         description="Update an existing survey.",
     )
     def patch(self, request, survey_id):
+        from .tasks import notify_users_new_survey
         survey = Survey.objects.filter(id=survey_id).first()
         if not survey:
             return Response({"error": "Survey not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        old_status = survey.status
         serializer = AdminSurveyUpdateSerializer(survey, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if old_status != "active" and survey.status == "active":
+            notify_users_new_survey.delay(survey.id)
         return Response(SurveyListSerializer(survey).data)
 
     @extend_schema(

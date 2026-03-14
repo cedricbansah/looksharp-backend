@@ -91,6 +91,8 @@ class AdminVerificationApproveView(APIView):
 
             User.objects.filter(id=verification.user_id).update(is_verified=True)
 
+        from .tasks import notify_user_kyc_decision
+        notify_user_kyc_decision.delay(verification.id)
         logger.info("Verification approved: verification=%s admin=%s", verification_id, request.user.id)
         return Response(VerificationListSerializer(verification).data)
 
@@ -128,6 +130,8 @@ class AdminVerificationRejectView(APIView):
 
             User.objects.filter(id=verification.user_id).update(is_verified=False)
 
+        from .tasks import notify_user_kyc_decision
+        notify_user_kyc_decision.delay(verification.id)
         logger.info("Verification rejected: verification=%s admin=%s", verification_id, request.user.id)
         return Response(VerificationListSerializer(verification).data)
 
