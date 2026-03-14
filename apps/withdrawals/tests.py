@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.users.models import User
 from apps.withdrawals.models import Withdrawal
-from apps.withdrawals.tasks import initiate_withdrawal_transfer
+from apps.withdrawals.tasks import _extract_paystack_error_message, initiate_withdrawal_transfer
 
 
 @pytest.fixture
@@ -311,6 +311,11 @@ class TestAdminWithdrawalUpdateEndpoint:
 
 @pytest.mark.django_db
 class TestInitiateWithdrawalTransferTask:
+    def test_returns_not_found_for_missing_withdrawal(self):
+        result = initiate_withdrawal_transfer.run("00000000-0000-0000-0000-000000000000")
+
+        assert result == {"success": False, "detail": "withdrawal not found"}
+
     def test_moves_pending_withdrawal_to_processing(self):
         user = User.objects.create(
             id="task-user-1",
@@ -383,6 +388,45 @@ class TestInitiateWithdrawalTransferTask:
         assert withdrawal.status == "failed"
         assert withdrawal.failure_reason == "Insufficient points for this withdrawal."
 
+    def test_marks_withdrawal_failed_when_user_is_missing(self):
+        withdrawal = Withdrawal.objects.create(
+            user_id="task-user-missing",
+            amount_ghs="10.00",
+            points_converted=100,
+            recipient_code="RCP_789",
+            transfer_reference="wd_task_missing_user",
+            status="pending",
+        )
+
+        result = initiate_withdrawal_transfer.run(str(withdrawal.id))
+
+        withdrawal.refresh_from_db()
+        assert result["success"] is False
+        assert withdrawal.status == "failed"
+        assert withdrawal.failure_reason == "User not found"
+
+    def test_marks_withdrawal_failed_when_recipient_code_is_missing(self):
+        user = User.objects.create(
+            id="task-user-3b",
+            email="task-user-3b@example.com",
+            points=500,
+        )
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=100,
+            recipient_code="",
+            transfer_reference="wd_task_missing_recipient",
+            status="pending",
+        )
+
+        result = initiate_withdrawal_transfer.run(str(withdrawal.id))
+
+        withdrawal.refresh_from_db()
+        assert result["success"] is False
+        assert withdrawal.status == "failed"
+        assert withdrawal.failure_reason == "User has no transfer recipient configured."
+
     def test_retries_on_transport_errors(self):
         user = User.objects.create(
             id="task-user-4",
@@ -439,3 +483,43 @@ class TestInitiateWithdrawalTransferTask:
         assert result["success"] is False
         assert withdrawal.status == "failed"
         assert withdrawal.failure_reason == "Balance too low"
+
+    def test_marks_withdrawal_failed_when_transfer_code_is_missing(self):
+        user = User.objects.create(
+            id="task-user-6",
+            email="task-user-6@example.com",
+            points=500,
+            recipient_code="RCP_987",
+        )
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=100,
+            recipient_code=user.recipient_code,
+            transfer_reference="wd_task_missing_transfer_code",
+            status="pending",
+        )
+
+        with patch("apps.withdrawals.tasks.paystack_service.initiate_transfer", return_value={"status": True, "data": {}}):
+            result = initiate_withdrawal_transfer.run(str(withdrawal.id))
+
+        withdrawal.refresh_from_db()
+        assert result == {"success": False, "detail": "transfer code missing"}
+        assert withdrawal.status == "failed"
+        assert withdrawal.failure_reason == "Paystack response missing transfer_code."
+
+    def test_extract_paystack_error_message_prefers_nested_message(self):
+        response = http_requests.Response()
+        response.status_code = 400
+        response._content = b'{"data":{"message":"Recipient invalid"}}'
+        exc = http_requests.HTTPError("bad request", response=response)
+
+        assert _extract_paystack_error_message(exc) == "Recipient invalid"
+
+    def test_extract_paystack_error_message_falls_back_to_status_code(self):
+        response = http_requests.Response()
+        response.status_code = 500
+        response._content = b""
+        exc = http_requests.HTTPError("server error", response=response)
+
+        assert _extract_paystack_error_message(exc) == "Paystack request failed (HTTP 500)"

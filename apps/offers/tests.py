@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 
 from apps.clients.models import Client
 from apps.offers.models import Offer, OfferCategory, Redemption
-from apps.offers.tasks import _days_remaining, recompute_status
+from apps.offers.tasks import _days_remaining, notify_users_new_offer, recompute_status
 from apps.users.models import User
 
 
@@ -351,14 +351,16 @@ class TestAdminOfferEndpoints:
         assert create.data["client_name"] == "Acme"
         assert create.data["client_logo_url"] == "https://cdn.example/clients/acme/logo"
 
-        update = client.patch(
-            f"/api/v1/admin/offers/{offer_id}/",
-            {"status": "active", "title": "Offer A+"},
-            format="json",
-        )
+        with patch("apps.offers.tasks.notify_users_new_offer.delay") as queue_sms:
+            update = client.patch(
+                f"/api/v1/admin/offers/{offer_id}/",
+                {"status": "active", "title": "Offer A+"},
+                format="json",
+            )
         assert update.status_code == 200
         assert update.data["status"] == "active"
         assert update.data["title"] == "Offer A+"
+        queue_sms.assert_called_once_with(offer_id)
 
         delete = client.delete(f"/api/v1/admin/offers/{offer_id}/")
         assert delete.status_code == 204
@@ -564,3 +566,46 @@ class TestRecomputeStatusTask:
 
     def test_days_remaining_none_end_date(self):
         assert _days_remaining(None) == 0
+
+
+@pytest.mark.django_db
+class TestOfferNotificationTask:
+    def test_notify_users_new_offer_returns_not_found(self):
+        result = notify_users_new_offer("missing-offer")
+
+        assert result == {"success": False, "detail": "offer not found"}
+
+    def test_notify_users_new_offer_sends_bulk_sms_to_unique_valid_numbers(self):
+        offer = Offer.objects.create(id="offer-notify-1", title="Promo", status="active")
+        User.objects.create(id="offer-user-1", email="offer-user-1@example.com", phone="0240000000")
+        User.objects.create(id="offer-user-2", email="offer-user-2@example.com", phone="0240000000")
+        User.objects.create(id="offer-user-3", email="offer-user-3@example.com", phone="0551111111")
+
+        with patch("services.hubtel.send_bulk_sms") as send_bulk_sms:
+            result = notify_users_new_offer(str(offer.id))
+
+        assert result == {"success": True, "offer_id": str(offer.id), "sent": 2, "failed": 0}
+        send_bulk_sms.assert_called_once_with(
+            ["233240000000", "233551111111"],
+            "New offer available: Promo. Open the LookSharp app to participate.",
+        )
+
+    def test_notify_users_new_offer_counts_invalid_numbers(self):
+        offer = Offer.objects.create(id="offer-notify-2", title="Promo", status="active")
+        User.objects.create(id="offer-user-4", email="offer-user-4@example.com", phone="bad-number")
+
+        with patch("services.hubtel.send_bulk_sms") as send_bulk_sms:
+            result = notify_users_new_offer(str(offer.id))
+
+        assert result == {"success": True, "offer_id": str(offer.id), "sent": 0, "failed": 1}
+        send_bulk_sms.assert_not_called()
+
+    def test_notify_users_new_offer_marks_all_recipients_failed_when_bulk_sms_fails(self):
+        offer = Offer.objects.create(id="offer-notify-3", title="Promo", status="active")
+        User.objects.create(id="offer-user-5", email="offer-user-5@example.com", phone="0240000000")
+        User.objects.create(id="offer-user-6", email="offer-user-6@example.com", phone="0551111111")
+
+        with patch("services.hubtel.send_bulk_sms", side_effect=RuntimeError("hubtel down")):
+            result = notify_users_new_offer(str(offer.id))
+
+        assert result == {"success": True, "offer_id": str(offer.id), "sent": 0, "failed": 2}

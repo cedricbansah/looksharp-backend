@@ -2,9 +2,11 @@ from unittest.mock import patch
 
 import pytest
 import requests
+from django.conf import settings
 from rest_framework.test import APIClient
 
 from apps.users.models import User
+import services.paystack as paystack_service
 
 
 @pytest.fixture
@@ -116,3 +118,114 @@ class TestPaystackProxyEndpoints:
         client = APIClient()
         resp = client.get("/api/v1/paystack/banks/")
         assert resp.status_code == 401
+
+
+class TestPaystackService:
+    def test_list_banks_calls_request_with_query_params(self):
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b'{"status": true, "data": []}'
+
+        with patch("services.paystack.requests.request", return_value=response) as request_call:
+            result = paystack_service.list_banks(type="mobile_money", currency="GHS")
+
+        assert result == {"status": True, "data": []}
+        request_call.assert_called_once_with(
+            "GET",
+            "https://api.paystack.co/bank",
+            headers={
+                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+            params={"type": "mobile_money", "currency": "GHS"},
+        )
+
+    def test_create_transfer_recipient_posts_expected_payload(self):
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b'{"status": true, "data": {"recipient_code": "RCP_1"}}'
+
+        with patch("services.paystack.requests.request", return_value=response) as request_call:
+            result = paystack_service.create_transfer_recipient(
+                name="Cedric Bansah",
+                account_number="0240000000",
+                bank_code="MTN",
+            )
+
+        assert result["data"]["recipient_code"] == "RCP_1"
+        request_call.assert_called_once_with(
+            "POST",
+            "https://api.paystack.co/transferrecipient",
+            headers={
+                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+            json={
+                "type": "mobile_money",
+                "name": "Cedric Bansah",
+                "account_number": "0240000000",
+                "bank_code": "MTN",
+                "currency": "GHS",
+            },
+        )
+
+    def test_initiate_transfer_posts_expected_payload(self):
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b'{"status": true, "data": {"transfer_code": "TRF_1"}}'
+
+        with patch("services.paystack.requests.request", return_value=response) as request_call:
+            result = paystack_service.initiate_transfer(
+                recipient="RCP_1",
+                amount_kobo=1000,
+                reference="REF_1",
+            )
+
+        assert result["data"]["transfer_code"] == "TRF_1"
+        request_call.assert_called_once_with(
+            "POST",
+            "https://api.paystack.co/transfer",
+            headers={
+                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+            json={
+                "source": "balance",
+                "recipient": "RCP_1",
+                "amount": 1000,
+                "reference": "REF_1",
+                "reason": "LookSharp cashout",
+            },
+        )
+
+    def test_finalize_transfer_posts_expected_payload(self):
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b'{"status": true}'
+
+        with patch("services.paystack.requests.request", return_value=response) as request_call:
+            result = paystack_service.finalize_transfer("TRF_1")
+
+        assert result == {"status": True}
+        request_call.assert_called_once_with(
+            "POST",
+            "https://api.paystack.co/transfer/finalize_transfer",
+            headers={
+                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+            json={"transfer_code": "TRF_1"},
+        )
+
+    def test_request_raises_for_http_errors(self):
+        response = requests.Response()
+        response.status_code = 400
+        response._content = b'{"message": "bad request"}'
+
+        with patch("services.paystack.requests.request", return_value=response):
+            with pytest.raises(requests.HTTPError):
+                paystack_service.list_banks()

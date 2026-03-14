@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 from apps.clients.models import Client
 from apps.responses.models import Response
 from apps.surveys.models import Question, Survey, SurveyCategory
-from apps.surveys.tasks import recompute_status
+from apps.surveys.tasks import notify_users_new_survey, recompute_status
 from apps.users.models import User
 
 
@@ -394,3 +394,43 @@ class TestSurveyTasks:
 
         assert result == {"success": True, "completed_count": 0}
         refresh_counter.assert_not_called()
+
+    def test_notify_users_new_survey_returns_not_found(self):
+        result = notify_users_new_survey("missing-survey")
+
+        assert result == {"success": False, "detail": "survey not found"}
+
+    def test_notify_users_new_survey_sends_bulk_sms_to_unique_valid_numbers(self):
+        survey = Survey.objects.create(id="survey-notify-1", title="Earn points", status="active")
+        User.objects.create(id="survey-user-1", email="survey-user-1@example.com", phone="0240000000")
+        User.objects.create(id="survey-user-2", email="survey-user-2@example.com", phone="0240000000")
+        User.objects.create(id="survey-user-3", email="survey-user-3@example.com", phone="0551111111")
+
+        with patch("services.hubtel.send_bulk_sms") as send_bulk_sms:
+            result = notify_users_new_survey(str(survey.id))
+
+        assert result == {"success": True, "survey_id": str(survey.id), "sent": 2, "failed": 0}
+        send_bulk_sms.assert_called_once_with(
+            ["233240000000", "233551111111"],
+            "New survey available: Earn points. Open the LookSharp app to participate.",
+        )
+
+    def test_notify_users_new_survey_counts_invalid_numbers(self):
+        survey = Survey.objects.create(id="survey-notify-2", title="Earn points", status="active")
+        User.objects.create(id="survey-user-4", email="survey-user-4@example.com", phone="bad-number")
+
+        with patch("services.hubtel.send_bulk_sms") as send_bulk_sms:
+            result = notify_users_new_survey(str(survey.id))
+
+        assert result == {"success": True, "survey_id": str(survey.id), "sent": 0, "failed": 1}
+        send_bulk_sms.assert_not_called()
+
+    def test_notify_users_new_survey_marks_all_recipients_failed_when_bulk_sms_fails(self):
+        survey = Survey.objects.create(id="survey-notify-3", title="Earn points", status="active")
+        User.objects.create(id="survey-user-5", email="survey-user-5@example.com", phone="0240000000")
+        User.objects.create(id="survey-user-6", email="survey-user-6@example.com", phone="0551111111")
+
+        with patch("services.hubtel.send_bulk_sms", side_effect=RuntimeError("hubtel down")):
+            result = notify_users_new_survey(str(survey.id))
+
+        assert result == {"success": True, "survey_id": str(survey.id), "sent": 0, "failed": 2}

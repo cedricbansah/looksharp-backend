@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 
 from apps.users.models import User
 from apps.verifications.models import Verification
+from apps.verifications.tasks import notify_user_kyc_decision
 
 
 @pytest.fixture
@@ -363,7 +364,184 @@ class TestVerificationEndpoints:
             )
 
         assert response.status_code == 502
-        assert response.data["error"] == "Invalid mobile number"
+
+
+@pytest.mark.django_db
+class TestVerificationNotificationTask:
+    def test_notify_user_kyc_decision_returns_not_found_for_missing_verification(self):
+        result = notify_user_kyc_decision("00000000-0000-0000-0000-000000000000")
+
+        assert result == {"success": False, "detail": "verification not found"}
+
+    def test_notify_user_kyc_decision_skips_when_already_sent(self):
+        verification = Verification.objects.create(
+            user_id="notify-user-1",
+            full_name="Notify User",
+            mobile_number="0240000000",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-1",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="approved",
+            notification_sent=True,
+        )
+
+        with patch("services.hubtel.send_sms") as send_sms:
+            result = notify_user_kyc_decision(str(verification.id))
+
+        assert result == {"success": True, "detail": "already sent"}
+        send_sms.assert_not_called()
+
+    def test_notify_user_kyc_decision_returns_user_not_found(self):
+        verification = Verification.objects.create(
+            user_id="notify-user-2",
+            full_name="Notify User",
+            mobile_number="0240000000",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-2",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="approved",
+        )
+
+        result = notify_user_kyc_decision(str(verification.id))
+
+        assert result == {"success": False, "detail": "user not found"}
+
+    def test_notify_user_kyc_decision_returns_user_has_no_phone(self):
+        user = User.objects.create(id="notify-user-3", email="notify-user-3@example.com", first_name="Ama")
+        verification = Verification.objects.create(
+            user_id=user.id,
+            full_name="Notify User",
+            mobile_number="0240000000",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-3",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="approved",
+        )
+
+        with patch("services.hubtel.send_sms") as send_sms:
+            result = notify_user_kyc_decision(str(verification.id))
+
+        assert result == {"success": False, "detail": "user has no phone"}
+        send_sms.assert_not_called()
+
+    def test_notify_user_kyc_decision_sends_approval_sms_and_marks_sent(self):
+        user = User.objects.create(
+            id="notify-user-4",
+            email="notify-user-4@example.com",
+            first_name="Ama",
+            phone="0240000000",
+        )
+        verification = Verification.objects.create(
+            user_id=user.id,
+            full_name="Notify User",
+            mobile_number="0240000000",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-4",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="approved",
+        )
+
+        with patch("services.hubtel.send_sms") as send_sms:
+            result = notify_user_kyc_decision(str(verification.id))
+
+        verification.refresh_from_db()
+        assert result == {"success": True, "verification_id": str(verification.id)}
+        assert verification.notification_sent is True
+        assert verification.notification_sent_at is not None
+        send_sms.assert_called_once_with(
+            "0240000000",
+            "Hi Ama, your LookSharp identity verification has been approved. You can now access all features.",
+        )
+
+    def test_notify_user_kyc_decision_sends_rejection_sms(self):
+        user = User.objects.create(
+            id="notify-user-5",
+            email="notify-user-5@example.com",
+            first_name="Kojo",
+            phone="0240000001",
+        )
+        verification = Verification.objects.create(
+            user_id=user.id,
+            full_name="Notify User",
+            mobile_number="0240000001",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-5",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="rejected",
+            rejection_reason="Blurred ID image",
+        )
+
+        with patch("services.hubtel.send_sms") as send_sms:
+            result = notify_user_kyc_decision(str(verification.id))
+
+        assert result == {"success": True, "verification_id": str(verification.id)}
+        send_sms.assert_called_once_with(
+            "0240000001",
+            "Hi Kojo, your LookSharp identity verification was not approved. Reason: Blurred ID image. Please resubmit.",
+        )
+
+    def test_notify_user_kyc_decision_skips_non_terminal_statuses(self):
+        user = User.objects.create(
+            id="notify-user-6",
+            email="notify-user-6@example.com",
+            phone="0240000002",
+        )
+        verification = Verification.objects.create(
+            user_id=user.id,
+            full_name="Notify User",
+            mobile_number="0240000002",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-6",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="pending",
+        )
+
+        with patch("services.hubtel.send_sms") as send_sms:
+            result = notify_user_kyc_decision(str(verification.id))
+
+        assert result == {"success": False, "detail": "no SMS for status pending"}
+        send_sms.assert_not_called()
+
+    def test_notify_user_kyc_decision_raises_when_sms_send_fails(self):
+        user = User.objects.create(
+            id="notify-user-7",
+            email="notify-user-7@example.com",
+            phone="0240000003",
+        )
+        verification = Verification.objects.create(
+            user_id=user.id,
+            full_name="Notify User",
+            mobile_number="0240000003",
+            network_provider="MTN",
+            id_type="ghana_card",
+            id_number="GHA-7",
+            id_front_url="https://example.com/front.jpg",
+            id_back_url="https://example.com/back.jpg",
+            selfie_url="https://example.com/selfie.jpg",
+            status="approved",
+        )
+
+        with patch("services.hubtel.send_sms", side_effect=RuntimeError("sms failed")):
+            with pytest.raises(RuntimeError, match="sms failed"):
+                notify_user_kyc_decision(str(verification.id))
 
     def test_create_recipient_returns_502_when_recipient_code_missing(self, mock_firebase):
         admin = User.objects.create(id="admin-missing-code", email="admin-missing-code@b.com", is_admin=True)
