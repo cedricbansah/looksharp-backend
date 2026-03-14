@@ -20,6 +20,7 @@ from .serializers import (
     WithdrawalCreateSerializer,
     WithdrawalListSerializer,
 )
+from .tasks import initiate_withdrawal_transfer
 
 
 def _transfer_reference() -> str:
@@ -92,6 +93,7 @@ class WithdrawalListCreateView(generics.ListCreateAPIView):
                     {"error": "transfer_reference already exists."},
                     status=status.HTTP_409_CONFLICT,
                 )
+            transaction.on_commit(lambda: initiate_withdrawal_transfer.delay(str(withdrawal.id)))
 
         return DRFResponse(
             WithdrawalListSerializer(withdrawal).data,

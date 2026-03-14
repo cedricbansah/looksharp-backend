@@ -124,6 +124,10 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
+    "surveys-recompute-status-daily": {
+        "task": "apps.surveys.tasks.recompute_status",
+        "schedule": crontab(minute=0, hour=0),
+    },
     "offers-recompute-status-daily": {
         "task": "apps.offers.tasks.recompute_status",
         "schedule": crontab(minute=0, hour=0),
@@ -157,6 +161,7 @@ FIREBASE_SERVICE_ACCOUNT_KEY_PATH = env(
 PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY", default="")
 HUBTEL_USERNAME = env("HUBTEL_USERNAME", default="")
 HUBTEL_PASSWORD = env("HUBTEL_PASSWORD", default="")
+HUBTEL_SENDER_ID = env("HUBTEL_SENDER_ID", default="LookSharp")
 CLOUDFLARE_ACCOUNT_ID = env("CLOUDFLARE_ACCOUNT_ID", default="")
 R2_ACCESS_KEY_ID = env("R2_ACCESS_KEY_ID", default="")
 R2_SECRET_ACCESS_KEY = env("R2_SECRET_ACCESS_KEY", default="")

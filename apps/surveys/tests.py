@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps.clients.models import Client
 from apps.responses.models import Response
 from apps.surveys.models import Question, Survey, SurveyCategory
+from apps.surveys.tasks import notify_users_new_survey, recompute_status
 from apps.users.models import User
 
 
@@ -217,14 +218,16 @@ class TestAdminSurveyEndpoints:
         assert create.data["client_id"] == client_obj.id
         assert create.data["client_name"] == client_obj.name
 
-        update = client.patch(
-            f"/api/v1/admin/surveys/{survey_id}/",
-            {"status": "active", "title": "Survey A+"},
-            format="json",
-        )
+        with patch("apps.surveys.tasks.notify_users_new_survey.delay") as queue_sms:
+            update = client.patch(
+                f"/api/v1/admin/surveys/{survey_id}/",
+                {"status": "active", "title": "Survey A+"},
+                format="json",
+            )
         assert update.status_code == 200
         assert update.data["status"] == "active"
         assert update.data["title"] == "Survey A+"
+        queue_sms.assert_called_once_with(survey_id)
 
         delete = client.delete(f"/api/v1/admin/surveys/{survey_id}/")
         assert delete.status_code == 204
@@ -339,3 +342,95 @@ class TestAdminSurveyEndpoints:
         client.credentials(HTTP_AUTHORIZATION="Bearer token")
         resp = client.get("/api/v1/admin/surveys/")
         assert resp.status_code == 403
+
+
+@pytest.mark.django_db
+class TestSurveyTasks:
+    def test_recompute_status_completes_expired_active_surveys(self):
+        now = timezone.now()
+        expired = Survey.objects.create(
+            id="expired-survey-1",
+            title="Expired",
+            status="active",
+            end_date=now - timedelta(days=1),
+        )
+        open_survey = Survey.objects.create(
+            id="open-survey-1",
+            title="Open",
+            status="active",
+            end_date=now + timedelta(days=1),
+        )
+        no_end_date = Survey.objects.create(
+            id="open-survey-2",
+            title="No End",
+            status="active",
+        )
+        already_completed = Survey.objects.create(
+            id="completed-survey-1",
+            title="Completed",
+            status="completed",
+            end_date=now - timedelta(days=2),
+        )
+
+        with patch("apps.counters.tasks.recompute_active_surveys.delay") as refresh_counter:
+            result = recompute_status()
+
+        expired.refresh_from_db()
+        open_survey.refresh_from_db()
+        no_end_date.refresh_from_db()
+        already_completed.refresh_from_db()
+        assert result == {"success": True, "completed_count": 1}
+        assert expired.status == "completed"
+        assert open_survey.status == "active"
+        assert no_end_date.status == "active"
+        assert already_completed.status == "completed"
+        refresh_counter.assert_called_once()
+
+    def test_recompute_status_skips_counter_refresh_when_no_surveys_change(self):
+        Survey.objects.create(id="survey-still-open", title="Open", status="active", end_date=timezone.now() + timedelta(days=1))
+
+        with patch("apps.counters.tasks.recompute_active_surveys.delay") as refresh_counter:
+            result = recompute_status()
+
+        assert result == {"success": True, "completed_count": 0}
+        refresh_counter.assert_not_called()
+
+    def test_notify_users_new_survey_returns_not_found(self):
+        result = notify_users_new_survey("missing-survey")
+
+        assert result == {"success": False, "detail": "survey not found"}
+
+    def test_notify_users_new_survey_sends_bulk_sms_to_unique_valid_numbers(self):
+        survey = Survey.objects.create(id="survey-notify-1", title="Earn points", status="active")
+        User.objects.create(id="survey-user-1", email="survey-user-1@example.com", phone="0240000000")
+        User.objects.create(id="survey-user-2", email="survey-user-2@example.com", phone="0240000000")
+        User.objects.create(id="survey-user-3", email="survey-user-3@example.com", phone="0551111111")
+
+        with patch("services.hubtel.send_bulk_sms") as send_bulk_sms:
+            result = notify_users_new_survey(str(survey.id))
+
+        assert result == {"success": True, "survey_id": str(survey.id), "sent": 2, "failed": 0}
+        send_bulk_sms.assert_called_once_with(
+            ["233240000000", "233551111111"],
+            "New survey available: Earn points. Open the LookSharp app to participate.",
+        )
+
+    def test_notify_users_new_survey_counts_invalid_numbers(self):
+        survey = Survey.objects.create(id="survey-notify-2", title="Earn points", status="active")
+        User.objects.create(id="survey-user-4", email="survey-user-4@example.com", phone="bad-number")
+
+        with patch("services.hubtel.send_bulk_sms") as send_bulk_sms:
+            result = notify_users_new_survey(str(survey.id))
+
+        assert result == {"success": True, "survey_id": str(survey.id), "sent": 0, "failed": 1}
+        send_bulk_sms.assert_not_called()
+
+    def test_notify_users_new_survey_marks_all_recipients_failed_when_bulk_sms_fails(self):
+        survey = Survey.objects.create(id="survey-notify-3", title="Earn points", status="active")
+        User.objects.create(id="survey-user-5", email="survey-user-5@example.com", phone="0240000000")
+        User.objects.create(id="survey-user-6", email="survey-user-6@example.com", phone="0551111111")
+
+        with patch("services.hubtel.send_bulk_sms", side_effect=RuntimeError("hubtel down")):
+            result = notify_users_new_survey(str(survey.id))
+
+        assert result == {"success": True, "survey_id": str(survey.id), "sent": 0, "failed": 2}

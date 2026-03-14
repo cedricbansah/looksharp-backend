@@ -147,9 +147,12 @@ class AdminOfferListCreateView(generics.ListCreateAPIView):
         return OfferListSerializer
 
     def create(self, request, *args, **kwargs):
+        from .tasks import notify_users_new_offer
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         offer = serializer.save()
+        if offer.status == "active":
+            notify_users_new_offer.delay(offer.id)
         return Response(OfferListSerializer(offer).data, status=status.HTTP_201_CREATED)
 
 
@@ -168,13 +171,17 @@ class AdminOfferUpdateDeleteView(generics.GenericAPIView):
         description="Update an existing offer.",
     )
     def patch(self, request, offer_id):
+        from .tasks import notify_users_new_offer
         offer = self.get_queryset().filter(id=offer_id).first()
         if not offer:
             return Response({"error": "Offer not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        old_status = offer.status
         serializer = AdminOfferUpdateSerializer(offer, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if old_status != "active" and offer.status == "active":
+            notify_users_new_offer.delay(offer.id)
         return Response(OfferListSerializer(offer).data)
 
     @extend_schema(

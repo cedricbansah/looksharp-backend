@@ -25,6 +25,37 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+def _verification_actionable_for_recipient(verification: Verification) -> bool:
+    return verification.status in {"pending", "approved"}
+
+
+def _paystack_error_message(exc: http_requests.HTTPError) -> str:
+    response = exc.response
+    if response is None:
+        return "Paystack request failed."
+
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+
+    if isinstance(payload, dict):
+        data = payload.get("data")
+        if isinstance(data, dict):
+            for key in ("message", "gateway_response", "status_description"):
+                value = data.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        for key in ("message", "error", "statusDescription"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    if response.text.strip():
+        return response.text.strip()
+    return "Paystack request failed."
+
+
 class VerificationListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -66,7 +97,7 @@ class AdminVerificationApproveView(APIView):
 
     @extend_schema(
         request=None,
-        responses={200: VerificationListSerializer, 404: OpenApiTypes.OBJECT},
+        responses={200: VerificationListSerializer, 400: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT, 409: OpenApiTypes.OBJECT},
         description="Approve a verification and mark user as verified.",
     )
     def post(self, request, verification_id):
@@ -74,6 +105,21 @@ class AdminVerificationApproveView(APIView):
             verification = Verification.objects.select_for_update().filter(id=verification_id).first()
             if not verification:
                 return Response({"error": "Verification not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if verification.status == "approved":
+                return Response({"error": "Verification is already approved."}, status=status.HTTP_409_CONFLICT)
+            if verification.status == "rejected":
+                return Response({"error": "Verification is already rejected."}, status=status.HTTP_409_CONFLICT)
+
+            user = User.objects.select_for_update().filter(id=verification.user_id).first()
+            if not user:
+                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if not user.recipient_code:
+                return Response(
+                    {"error": "Generate recipient code before approving this verification."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             verification.status = "approved"
             verification.rejection_reason = ""
@@ -89,8 +135,11 @@ class AdminVerificationApproveView(APIView):
                 ]
             )
 
-            User.objects.filter(id=verification.user_id).update(is_verified=True)
+            user.is_verified = True
+            user.save(update_fields=["is_verified"])
 
+        from .tasks import notify_user_kyc_decision
+        notify_user_kyc_decision.delay(verification.id)
         logger.info("Verification approved: verification=%s admin=%s", verification_id, request.user.id)
         return Response(VerificationListSerializer(verification).data)
 
@@ -128,6 +177,8 @@ class AdminVerificationRejectView(APIView):
 
             User.objects.filter(id=verification.user_id).update(is_verified=False)
 
+        from .tasks import notify_user_kyc_decision
+        notify_user_kyc_decision.delay(verification.id)
         logger.info("Verification rejected: verification=%s admin=%s", verification_id, request.user.id)
         return Response(VerificationListSerializer(verification).data)
 
@@ -138,16 +189,32 @@ class AdminCreateRecipientView(APIView):
     @extend_schema(
         request=None,
         responses={
+            200: OpenApiTypes.OBJECT,
             201: OpenApiTypes.OBJECT,
             404: OpenApiTypes.OBJECT,
+            409: OpenApiTypes.OBJECT,
             502: OpenApiTypes.OBJECT,
         },
         description="Create a Paystack transfer recipient from verification data.",
     )
     def post(self, request, verification_id):
-        verification = Verification.objects.filter(id=verification_id).first()
-        if not verification:
-            return Response({"error": "Verification not found."}, status=status.HTTP_404_NOT_FOUND)
+        with transaction.atomic():
+            verification = Verification.objects.select_for_update().filter(id=verification_id).first()
+            if not verification:
+                return Response({"error": "Verification not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if not _verification_actionable_for_recipient(verification):
+                return Response(
+                    {"error": f"Verification is not actionable in status {verification.status}."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            user = User.objects.select_for_update().filter(id=verification.user_id).first()
+            if not user:
+                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if user.recipient_code:
+                return Response({"recipient_code": user.recipient_code}, status=status.HTTP_200_OK)
 
         try:
             recipient_data = paystack_service.create_transfer_recipient(
@@ -159,7 +226,7 @@ class AdminCreateRecipientView(APIView):
             )
         except http_requests.HTTPError as exc:
             logger.error("Paystack create_recipient failed: %s", exc)
-            return Response({"error": "Paystack request failed"}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response({"error": _paystack_error_message(exc)}, status=status.HTTP_502_BAD_GATEWAY)
 
         recipient_code = (
             recipient_data.get("data", {}).get("recipient_code")
@@ -172,7 +239,16 @@ class AdminCreateRecipientView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        User.objects.filter(id=verification.user_id).update(recipient_code=recipient_code)
+        with transaction.atomic():
+            user = User.objects.select_for_update().filter(id=verification.user_id).first()
+            if not user:
+                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if user.recipient_code:
+                return Response({"recipient_code": user.recipient_code}, status=status.HTTP_200_OK)
+
+            user.recipient_code = recipient_code
+            user.save(update_fields=["recipient_code"])
         logger.info(
             "Recipient created for verification=%s user=%s",
             verification_id,
