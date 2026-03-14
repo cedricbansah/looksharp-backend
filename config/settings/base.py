@@ -124,6 +124,10 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
+    "surveys-recompute-status-daily": {
+        "task": "apps.surveys.tasks.recompute_status",
+        "schedule": crontab(minute=0, hour=0),
+    },
     "offers-recompute-status-daily": {
         "task": "apps.offers.tasks.recompute_status",
         "schedule": crontab(minute=0, hour=0),

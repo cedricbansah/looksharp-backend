@@ -1,6 +1,7 @@
 import logging
 
 from celery import shared_task
+from django.utils import timezone
 
 from .models import Survey
 
@@ -52,3 +53,23 @@ def notify_users_new_survey(survey_id: str) -> dict:
         "notify_users_new_survey: survey=%s sent=%d failed=%d", survey_id, sent, failed
     )
     return {"success": True, "survey_id": survey_id, "sent": sent, "failed": failed}
+
+
+@shared_task(queue="default")
+def recompute_status() -> dict:
+    now = timezone.now()
+    completed_count = Survey.objects.filter(
+        status="active",
+        end_date__isnull=False,
+        end_date__lte=now,
+    ).update(status="completed", updated_at=now)
+
+    if completed_count:
+        from apps.counters.tasks import recompute_active_surveys
+
+        recompute_active_surveys.delay()
+
+    return {
+        "success": True,
+        "completed_count": completed_count,
+    }

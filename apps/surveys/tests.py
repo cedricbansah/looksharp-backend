@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps.clients.models import Client
 from apps.responses.models import Response
 from apps.surveys.models import Question, Survey, SurveyCategory
+from apps.surveys.tasks import recompute_status
 from apps.users.models import User
 
 
@@ -217,14 +218,16 @@ class TestAdminSurveyEndpoints:
         assert create.data["client_id"] == client_obj.id
         assert create.data["client_name"] == client_obj.name
 
-        update = client.patch(
-            f"/api/v1/admin/surveys/{survey_id}/",
-            {"status": "active", "title": "Survey A+"},
-            format="json",
-        )
+        with patch("apps.surveys.tasks.notify_users_new_survey.delay") as queue_sms:
+            update = client.patch(
+                f"/api/v1/admin/surveys/{survey_id}/",
+                {"status": "active", "title": "Survey A+"},
+                format="json",
+            )
         assert update.status_code == 200
         assert update.data["status"] == "active"
         assert update.data["title"] == "Survey A+"
+        queue_sms.assert_called_once_with(survey_id)
 
         delete = client.delete(f"/api/v1/admin/surveys/{survey_id}/")
         assert delete.status_code == 204
@@ -339,3 +342,55 @@ class TestAdminSurveyEndpoints:
         client.credentials(HTTP_AUTHORIZATION="Bearer token")
         resp = client.get("/api/v1/admin/surveys/")
         assert resp.status_code == 403
+
+
+@pytest.mark.django_db
+class TestSurveyTasks:
+    def test_recompute_status_completes_expired_active_surveys(self):
+        now = timezone.now()
+        expired = Survey.objects.create(
+            id="expired-survey-1",
+            title="Expired",
+            status="active",
+            end_date=now - timedelta(days=1),
+        )
+        open_survey = Survey.objects.create(
+            id="open-survey-1",
+            title="Open",
+            status="active",
+            end_date=now + timedelta(days=1),
+        )
+        no_end_date = Survey.objects.create(
+            id="open-survey-2",
+            title="No End",
+            status="active",
+        )
+        already_completed = Survey.objects.create(
+            id="completed-survey-1",
+            title="Completed",
+            status="completed",
+            end_date=now - timedelta(days=2),
+        )
+
+        with patch("apps.counters.tasks.recompute_active_surveys.delay") as refresh_counter:
+            result = recompute_status()
+
+        expired.refresh_from_db()
+        open_survey.refresh_from_db()
+        no_end_date.refresh_from_db()
+        already_completed.refresh_from_db()
+        assert result == {"success": True, "completed_count": 1}
+        assert expired.status == "completed"
+        assert open_survey.status == "active"
+        assert no_end_date.status == "active"
+        assert already_completed.status == "completed"
+        refresh_counter.assert_called_once()
+
+    def test_recompute_status_skips_counter_refresh_when_no_surveys_change(self):
+        Survey.objects.create(id="survey-still-open", title="Open", status="active", end_date=timezone.now() + timedelta(days=1))
+
+        with patch("apps.counters.tasks.recompute_active_surveys.delay") as refresh_counter:
+            result = recompute_status()
+
+        assert result == {"success": True, "completed_count": 0}
+        refresh_counter.assert_not_called()

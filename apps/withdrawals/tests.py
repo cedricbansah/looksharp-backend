@@ -1,11 +1,14 @@
 from unittest.mock import patch
 
 import pytest
+import requests as http_requests
+from celery.exceptions import Retry
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.users.models import User
 from apps.withdrawals.models import Withdrawal
+from apps.withdrawals.tasks import initiate_withdrawal_transfer
 
 
 @pytest.fixture
@@ -29,18 +32,22 @@ class TestWithdrawalEndpoint:
         )
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION="Bearer token")
-        resp = client.post(
-            "/api/v1/withdrawals/",
-            {
-                "amount_ghs": "10.00",
-                "points_converted": 100,
-            },
-            format="json",
-        )
+        with patch("apps.withdrawals.views.transaction.on_commit", side_effect=lambda fn: fn()), patch(
+            "apps.withdrawals.views.initiate_withdrawal_transfer.delay"
+        ) as queue_task:
+            resp = client.post(
+                "/api/v1/withdrawals/",
+                {
+                    "amount_ghs": "10.00",
+                    "points_converted": 100,
+                },
+                format="json",
+            )
         assert resp.status_code == 201
         created = Withdrawal.objects.get(user_id="u1")
         assert created.recipient_code == "RCP_USER_1"
         assert created.transfer_reference.startswith("wd_")
+        queue_task.assert_called_once_with(str(created.id))
 
     def test_unverified_user_gets_403(self, mock_firebase):
         mock_firebase.return_value = {"uid": "u2", "email": "b@b.com"}
@@ -300,3 +307,135 @@ class TestAdminWithdrawalUpdateEndpoint:
             format="json",
         )
         assert resp.status_code == 409
+
+
+@pytest.mark.django_db
+class TestInitiateWithdrawalTransferTask:
+    def test_moves_pending_withdrawal_to_processing(self):
+        user = User.objects.create(
+            id="task-user-1",
+            email="task-user-1@example.com",
+            points=500,
+            recipient_code="RCP_123",
+        )
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=100,
+            recipient_code=user.recipient_code,
+            transfer_reference="wd_task_success",
+            status="pending",
+        )
+
+        with patch("apps.withdrawals.tasks.paystack_service.initiate_transfer") as initiate_transfer:
+            initiate_transfer.return_value = {"status": True, "data": {"transfer_code": "TRF_123"}}
+            result = initiate_withdrawal_transfer.run(str(withdrawal.id))
+
+        withdrawal.refresh_from_db()
+        assert result["success"] is True
+        assert withdrawal.status == "processing"
+        assert withdrawal.transfer_code == "TRF_123"
+        assert withdrawal.failure_reason == ""
+
+    def test_skips_non_pending_withdrawal(self):
+        user = User.objects.create(
+            id="task-user-2",
+            email="task-user-2@example.com",
+            points=500,
+            recipient_code="RCP_456",
+        )
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=100,
+            recipient_code=user.recipient_code,
+            transfer_reference="wd_task_skip",
+            status="processing",
+            transfer_code="TRF_EXISTING",
+        )
+
+        with patch("apps.withdrawals.tasks.paystack_service.initiate_transfer") as initiate_transfer:
+            result = initiate_withdrawal_transfer.run(str(withdrawal.id))
+
+        assert result["detail"] == "already processed"
+        initiate_transfer.assert_not_called()
+
+    def test_marks_withdrawal_failed_when_points_are_insufficient(self):
+        user = User.objects.create(
+            id="task-user-3",
+            email="task-user-3@example.com",
+            points=50,
+            recipient_code="RCP_789",
+        )
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=100,
+            recipient_code=user.recipient_code,
+            transfer_reference="wd_task_insufficient",
+            status="pending",
+        )
+
+        result = initiate_withdrawal_transfer.run(str(withdrawal.id))
+
+        withdrawal.refresh_from_db()
+        assert result["success"] is False
+        assert withdrawal.status == "failed"
+        assert withdrawal.failure_reason == "Insufficient points for this withdrawal."
+
+    def test_retries_on_transport_errors(self):
+        user = User.objects.create(
+            id="task-user-4",
+            email="task-user-4@example.com",
+            points=500,
+            recipient_code="RCP_321",
+        )
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=100,
+            recipient_code=user.recipient_code,
+            transfer_reference="wd_task_retry",
+            status="pending",
+        )
+
+        with patch("apps.withdrawals.tasks.paystack_service.initiate_transfer") as initiate_transfer, patch.object(
+            initiate_withdrawal_transfer,
+            "retry",
+            side_effect=Retry(),
+        ) as retry_call:
+            initiate_transfer.side_effect = http_requests.ConnectionError("network down")
+            with pytest.raises(Retry):
+                initiate_withdrawal_transfer.run(str(withdrawal.id))
+
+        withdrawal.refresh_from_db()
+        assert withdrawal.status == "pending"
+        retry_call.assert_called_once()
+
+    def test_marks_withdrawal_failed_on_terminal_http_error(self):
+        user = User.objects.create(
+            id="task-user-5",
+            email="task-user-5@example.com",
+            points=500,
+            recipient_code="RCP_654",
+        )
+        withdrawal = Withdrawal.objects.create(
+            user_id=user.id,
+            amount_ghs="10.00",
+            points_converted=100,
+            recipient_code=user.recipient_code,
+            transfer_reference="wd_task_http_error",
+            status="pending",
+        )
+        response = http_requests.Response()
+        response.status_code = 400
+        response._content = b'{"message":"Balance too low"}'
+
+        with patch("apps.withdrawals.tasks.paystack_service.initiate_transfer") as initiate_transfer:
+            initiate_transfer.side_effect = http_requests.HTTPError("bad request", response=response)
+            result = initiate_withdrawal_transfer.run(str(withdrawal.id))
+
+        withdrawal.refresh_from_db()
+        assert result["success"] is False
+        assert withdrawal.status == "failed"
+        assert withdrawal.failure_reason == "Balance too low"
